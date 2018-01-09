@@ -90,6 +90,7 @@ class Configurator(object):
         service_instance = vcenter_options['service_instance']
         with filter_spec_context(service_instance) as filter_spec:
             availability_zones = set()
+            cluster_options = None
 
             for cluster in collect_properties(service_instance, [filter_spec]):
                 cluster_name = cluster['name']
@@ -138,7 +139,8 @@ class Configurator(object):
                 cluster_options.update(vcenter_options)
                 cluster_options.update(availability_zone=availability_zone)
 
-            self._add_code('vcenter_datacenter', cluster_options)
+            if cluster_options:
+                self._add_code('vcenter_datacenter', cluster_options)
 
     def _add_code(self, scope, options):
         for template_name in env.list_templates(filter_func=lambda x: x.startswith(scope) and x.endswith('.yaml.j2')):
