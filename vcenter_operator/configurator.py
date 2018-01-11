@@ -1,4 +1,5 @@
 import atexit
+import json
 import logging
 import re
 import ssl
@@ -164,8 +165,13 @@ class Configurator(object):
         configmap = client.CoreV1Api().read_namespaced_config_map(namespace=self.namespace,
                                                                   name='vcenter-operator',
                                                                   export=True)
+
         password = configmap.data.pop('password')
-        self.global_options.update(configmap.data)
+        for key, value in configmap.data:
+            try:
+                self.global_options.update(key, json.loads(value))
+            except ValueError:
+                self.global_options.update(key, value)
         if self.password != password:
             self.global_options.update(master_password=password)
             self.password = password
