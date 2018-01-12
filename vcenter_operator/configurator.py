@@ -167,11 +167,11 @@ class Configurator(object):
                                                                   export=True)
 
         password = configmap.data.pop('password')
-        for key, value in configmap.data:
+        for key, value in configmap.data.items():
             try:
-                self.global_options.update(key, json.loads(value))
+                self.global_options[key] = json.loads(value)
             except ValueError:
-                self.global_options.update(key, value)
+                self.global_options[key] = value
         if self.password != password:
             self.global_options.update(master_password=password)
             self.password = password
