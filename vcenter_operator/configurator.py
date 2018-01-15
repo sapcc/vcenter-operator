@@ -130,9 +130,6 @@ class Configurator(object):
                     continue
 
                 cluster_state = self.clusters[cluster_name]
-                config_hash = hash(frozenset(cluster_options.items()))
-                cluster_options['config_hash'] = config_hash + sys.maxsize
-                cluster_state['config_hash'] = config_hash
                 self._add_code('vcenter_cluster', cluster_options)
 
             for availability_zone in availability_zones:
