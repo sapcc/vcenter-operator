@@ -80,7 +80,7 @@ class Configurator(object):
 
             except vim.fault.InvalidLogin as e:
                 LOG.error("%s: %s", host, e.msg)
-            except socket_error as e:
+            except (Exception, socket_error) as e:
                 LOG.error("%s: %s", host, e)
 
         if removed:
