@@ -1,7 +1,8 @@
 import hashlib
 import logging
 
-from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, contextfilter
+from jinja2 import BaseLoader, ChoiceLoader, FileSystemLoader, Environment, PackageLoader, contextfilter, TemplateNotFound
+from kubernetes import client
 
 from masterpassword import MasterPassword
 
@@ -41,7 +42,39 @@ def _render(ctx, template_name):
     return template.render(ctx)
 
 
-env = Environment(loader=ChoiceLoader([FileSystemLoader('/var/lib/kolla/config_files', followlinks=True),
+class ConfigMapLoader(BaseLoader):
+    def __init__(self):
+        self.mapping = {}
+        self.resource_version = None
+
+    def get_source(self, environment, template):
+        if template in self.mapping:
+            source = self.mapping[template]
+            return source, None, lambda: source == self.mapping.get(template)
+        raise TemplateNotFound(template)
+
+    def list_templates(self):
+        self.read_config_map()
+        return sorted(self.mapping)
+
+    def read_config_map(self):
+        try:
+            config = client.CoreV1Api().read_namespaced_config_map(namespace='kube-system',
+                                                                   name='vcenter-operator',
+                                                                   export=False)
+
+            if self.resource_version == config.metadata.resource_version:
+                return
+
+            self.mapping = {}
+            for key, value in config.data.items():
+                if key.endswith(".j2"):
+                    self.mapping[key] = value
+        except client.rest.ApiException as e:
+            pass
+
+env = Environment(loader=ChoiceLoader([ConfigMapLoader(),
+                                       FileSystemLoader('/var/lib/kolla/config_files', followlinks=True),
                                        PackageLoader('vcenter_operator', 'templates')]))
 env.filters['ini_escape'] = _ini_escape
 env.filters['quote'] = _quote

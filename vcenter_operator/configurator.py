@@ -3,7 +3,6 @@ import json
 import logging
 import re
 import ssl
-import sys
 from collections import defaultdict, deque
 from contextlib import contextmanager
 from os.path import commonprefix
