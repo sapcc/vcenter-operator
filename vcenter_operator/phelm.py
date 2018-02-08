@@ -1,12 +1,18 @@
-import attr
+import json
 import logging
 import re
-import six
 import sys
+
+import attr
+import jsonpatch
+import six
 import yaml
+from jsonpointer import resolve_pointer
 from kubernetes import client
 
 log = logging.getLogger(__name__)
+
+api_client = client.ApiClient()
 
 
 def _remove_empty_from_dict(d):
@@ -21,6 +27,13 @@ def _remove_empty_from_dict(d):
 def _under_score(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
+_IGNORE_PATHS = set(['/status', '/metadata/annotations', '/spec/selector'])
+
+
+def serialize(obj):
+    return _remove_empty_from_dict(api_client.sanitize_for_serialization(obj))
 
 
 @attr.s
@@ -38,8 +51,7 @@ class DeploymentState(object):
                 log.warning("Duplicate item #{}".format(id))
             api = [p.capitalize() for p in id[0].split('/', 1)]
             klass = getattr(client, "".join([api[-1], id[1]]))
-            api_client = client.ApiClient()
-            self.items[id] = api_client._ApiClient__deserialize_model(item, klass)
+            self.items[id] = serialize(api_client._ApiClient__deserialize_model(item, klass))
 
     def delta(self, other):
         delta = DeploymentState(namespace=self.namespace)
@@ -55,50 +67,58 @@ class DeploymentState(object):
 
         return delta
 
-    def _diff(self, old_item, new_item, level=0):
+    @staticmethod
+    def _unique_items(l):
+        return [dict(t) for t in set([tuple(d.items()) for d in l])]
+
+    def _diff(self, old_item, new_item):
         if not new_item:
-            return False
+            return None
         if not old_item and new_item:
-            return True
+            return new_item
 
-        for key in six.iterkeys(new_item.attribute_map):
-            if 0 == level and key in ['status', 'kind']:
-                continue
-            if 1 == level and key in ['self_link']:
-                continue
-
-            old_value = getattr(old_item, key, None)
-            new_value = getattr(new_item, key, None)
-
-            if not new_value:
+        diff = []
+        for op in jsonpatch.JsonPatch.from_diff(old_item, new_item):
+            if op["op"] == "replace" and op["value"] is None \
+                    or old_item.get("metadata", {}).get("namespace") is None \
+                    and op["path"] == "/metadata/namespace" \
+                    and op["value"] == self.namespace \
+                    or op["path"] in _IGNORE_PATHS:
                 continue
 
-            if getattr(new_value, 'attribute_map', None):
-                if self._diff(new_value, old_value, level + 1):
-                    return True
-            elif old_value != new_value:
-                # log.debug("{} {}: {} <> {}".format(level, key, old_item, new_item))
-                return key
+            if op["op"] == "remove":
+                old_value = resolve_pointer(old_item, op["path"])
+                if not isinstance(old_value, (dict, list)):
+                    continue
 
-        return False
+            diff.append(op)
+
+        return diff
 
     def _apply_delta(self, api, old_item, new_item):
-        if self._diff(old_item, new_item):
+        diff = self._diff(old_item, new_item)
+        if diff:
+            metadata_name = new_item['metadata']['name']
             if not old_item:
                 action = 'create'
                 args = [self.namespace, new_item]
             else:
                 action = 'patch'
-                args = [new_item.metadata.name, self.namespace, new_item]
+                args = [metadata_name, self.namespace, diff]
 
-            underscored = _under_score(new_item.kind)
+            underscored = _under_score(new_item["kind"])
 
             if self.dry_run:
-                log.info("{}: {}/{}".format(action.title(), underscored, new_item.metadata.name))
-                for line in yaml.dump(_remove_empty_from_dict(new_item.to_dict())).split("\n"):
+                log.info("{}: {}/{}".format(action.title(), underscored, metadata_name))
+                for line in json.dumps(new_item, sort_keys=True, indent=2, separators=(',', ': ')).splitlines():
                     log.debug(line)
             else:
-                log.debug("{}: {}/{}".format(action.title(), underscored, new_item.metadata.name))
+                log.debug("{}: {}/{}".format(action.title(), underscored, metadata_name))
+                try:
+                    for line in diff:
+                        log.debug(line)
+                except TypeError:
+                    pass
                 method = getattr(api, '{}_namespaced_{}'.format(action, underscored))
                 method(*args)
 
@@ -120,7 +140,7 @@ class DeploymentState(object):
             current = None
             try:
                 reader = self.get_method(api, 'read', 'namespaced', _under_score(kind))
-                current = reader(name, self.namespace, pretty=False, export=True)
+                current = serialize(reader(name, self.namespace, pretty=False, export=True))
             except client.rest.ApiException as e:
                 if e.status == 404:
                     pass
