@@ -2,6 +2,7 @@ import argparse
 import logging
 import re
 import sys
+import os
 from time import sleep
 
 import six
@@ -33,8 +34,8 @@ def main():
         domain = 'cc.{}.cloud.sap'.format(region)
         global_options['own_namespace'] = 'kube-system'  # context['context']['namespace']
     except IOError:
-        from os import environ
-        environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
+        if not 'KUBERNETES_SERVICE_HOST' in os.environ:
+            os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
         with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
             global_options['own_namespace'] = f.read()
@@ -42,7 +43,9 @@ def main():
             for l in f:
                 if re.match('^search\s+', l):
                     _, domain = l.rsplit(' ', 1)
-                    domain = domain.strip()
+
+    if 'SERVICE_DOMAIN' in os.environ:
+        domain = os.environ['SERVICE_DOMAIN']
 
     configurator = Configurator(domain, global_options)
     configurator.poll_config()
