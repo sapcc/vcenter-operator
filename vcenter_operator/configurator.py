@@ -44,7 +44,6 @@ class Configurator(object):
         self.mpw = None
         self.domain = domain
         self.vcenters = dict()
-        self.clusters = defaultdict(dict)
         self.states = deque()
         self.poll_config()
 
@@ -128,7 +127,6 @@ class Configurator(object):
                                 cluster_name)
                     continue
 
-                cluster_state = self.clusters[cluster_name]
                 self._add_code('vcenter_cluster', cluster_options)
 
             for availability_zone in availability_zones:
