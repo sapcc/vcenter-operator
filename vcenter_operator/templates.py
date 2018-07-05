@@ -1,7 +1,8 @@
 import hashlib
 import logging
 
-from jinja2 import BaseLoader, ChoiceLoader, FileSystemLoader, Environment, PackageLoader, contextfilter, TemplateNotFound
+from jinja2 import BaseLoader, ChoiceLoader, FileSystemLoader, Environment, \
+    PackageLoader, contextfilter, TemplateNotFound
 from kubernetes import client
 
 from masterpassword import MasterPassword
@@ -59,9 +60,10 @@ class ConfigMapLoader(BaseLoader):
 
     def read_config_map(self):
         try:
-            config = client.CoreV1Api().read_namespaced_config_map(namespace='kube-system',
-                                                                   name='vcenter-operator',
-                                                                   export=False)
+            config = client.CoreV1Api().read_namespaced_config_map(
+                namespace='kube-system',
+                name='vcenter-operator',
+                export=False)
 
             if self.resource_version == config.metadata.resource_version:
                 return
@@ -73,9 +75,13 @@ class ConfigMapLoader(BaseLoader):
         except client.rest.ApiException as e:
             pass
 
-env = Environment(loader=ChoiceLoader([ConfigMapLoader(),
-                                       FileSystemLoader('/var/lib/kolla/config_files', followlinks=True),
-                                       PackageLoader('vcenter_operator', 'templates')]))
+
+env = Environment(
+    loader=ChoiceLoader([
+        ConfigMapLoader(),
+        FileSystemLoader('/var/lib/kolla/config_files', followlinks=True),
+        PackageLoader('vcenter_operator', 'templates')]))
+
 env.filters['ini_escape'] = _ini_escape
 env.filters['quote'] = _quote
 env.filters['derive_password'] = _derive_password

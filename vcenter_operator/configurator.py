@@ -3,7 +3,7 @@ import json
 import logging
 import re
 import ssl
-from collections import defaultdict, deque
+from collections import deque
 from contextlib import contextmanager
 from os.path import commonprefix
 from socket import error as socket_error
@@ -28,7 +28,8 @@ def filter_spec_context(service_instance):
         view_ref = get_container_view(service_instance, obj_type=[obj_type])
         yield create_filter_spec(view_ref=view_ref,
                                  obj_type=obj_type,
-                                 path_set=['name', 'parent', 'datastore', 'network'])
+                                 path_set=['name', 'parent',
+                                           'datastore', 'network'])
     finally:
         view_ref.DestroyView()
 
@@ -54,7 +55,8 @@ class Configurator(object):
                 if host in self.vcenters:
                     continue
 
-                password = self.mpw.derive('long', host).replace("/", "")  # Vcenter doesn't accept / in password
+                # Vcenter doesn't accept / in password
+                password = self.mpw.derive('long', host).replace("/", "")
 
                 LOG.info("{}".format(host))
                 if hasattr(ssl, '_create_unverified_context'):
@@ -69,12 +71,13 @@ class Configurator(object):
                 if service_instance:
                     atexit.register(Disconnect, service_instance)
 
-                    self.vcenters[host] = {'service_instance': service_instance,
-                                           'username': self.username,
-                                           'password': password,
-                                           'host': host,
-                                           'name': name,
-                                           }
+                    self.vcenters[host] = {
+                        'service_instance': service_instance,
+                        'username': self.username,
+                        'password': password,
+                        'host': host,
+                        'name': name,
+                    }
 
             except vim.fault.InvalidLogin as e:
                 LOG.error("%s: %s", host, e.msg)
@@ -96,7 +99,9 @@ class Configurator(object):
                 match = self.CLUSTER_MATCH.match(cluster_name)
 
                 if not match:
-                    LOG.debug("%s: Ignoring cluster %s not matching naming scheme", host, cluster_name)
+                    LOG.debug(
+                        "%s: Ignoring cluster %s "
+                        "not matching naming scheme", host, cluster_name)
                     continue
 
                 parent = cluster['parent']
@@ -110,8 +115,9 @@ class Configurator(object):
 
                 if cluster_options.get('pbm_enabled', 'false') != 'true':
                     datastores = cluster['datastore']
-                    datastore_names = [datastore.name for datastore in datastores if
-                                       self.EPH_MATCH.match(datastore.name)]
+                    datastore_names = [datastore.name
+                                       for datastore in datastores
+                                       if self.EPH_MATCH.match(datastore.name)]
                     eph = commonprefix(datastore_names)
                     cluster_options.update(datastore_regex="^{}.*".format(eph))
 
@@ -123,8 +129,9 @@ class Configurator(object):
                         break
 
                 if not 'bridge' in cluster_options:
-                    LOG.warning("%s: Skipping cluster %s, cannot find bridge matching naming scheme", host,
-                                cluster_name)
+                    LOG.warning("%s: Skipping cluster %s, "
+                                "cannot find bridge matching naming scheme",
+                                host, cluster_name)
                     continue
 
                 self._add_code('vcenter_cluster', cluster_options)
@@ -138,7 +145,10 @@ class Configurator(object):
                 self._add_code('vcenter_datacenter', cluster_options)
 
     def _add_code(self, scope, options):
-        for template_name in env.list_templates(filter_func=lambda x: x.startswith(scope) and x.endswith('.yaml.j2')):
+        for template_name in env.list_templates(
+                filter_func=lambda x: (x.startswith(scope)
+                                       and x.endswith('.yaml.j2'))
+        ):
             template = env.get_template(template_name)
             result = template.render(options)
             self.states[-1].add(result)
@@ -156,9 +166,10 @@ class Configurator(object):
         return self.global_options['own_namespace']
 
     def poll_config(self):
-        configmap = client.CoreV1Api().read_namespaced_config_map(namespace=self.namespace,
-                                                                  name='vcenter-operator',
-                                                                  export=True)
+        configmap = client.CoreV1Api().read_namespaced_config_map(
+            namespace=self.namespace,
+            name='vcenter-operator',
+            export=True)
 
         password = configmap.data.pop('password')
         for key, value in configmap.data.items():
@@ -173,8 +184,9 @@ class Configurator(object):
 
     def poll(self):
         self.poll_config()
-        self.states.append(DeploymentState(namespace=self.global_options['namespace'],
-                                           dry_run=(self.global_options.get('dry_run', 'False') == 'True')))
+        self.states.append(DeploymentState(
+            namespace=self.global_options['namespace'],
+            dry_run=(self.global_options.get('dry_run', 'False') == 'True')))
         self._add_code('global', self.global_options)
 
         for host in six.iterkeys(self.vcenters):

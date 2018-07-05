@@ -17,9 +17,12 @@ api_client = client.ApiClient()
 
 def _remove_empty_from_dict(d):
     if type(d) is dict:
-        return dict((k, _remove_empty_from_dict(v)) for k, v in d.iteritems() if v and _remove_empty_from_dict(v))
+        return dict(
+            (k, _remove_empty_from_dict(v)) for k, v in d.iteritems() if
+            v and _remove_empty_from_dict(v))
     elif type(d) is list:
-        return [_remove_empty_from_dict(v) for v in d if v and _remove_empty_from_dict(v)]
+        return [_remove_empty_from_dict(v) for v in d if
+                v and _remove_empty_from_dict(v)]
     else:
         return d
 
@@ -51,7 +54,8 @@ class DeploymentState(object):
                 log.warning("Duplicate item #{}".format(id))
             api = [p.capitalize() for p in id[0].split('/', 1)]
             klass = getattr(client, "".join(api + [id[1]]))
-            self.items[id] = serialize(api_client._ApiClient__deserialize_model(item, klass))
+            ser = api_client._ApiClient__deserialize_model(item, klass)
+            self.items[id] = serialize(ser)
 
     def delta(self, other):
         delta = DeploymentState(namespace=self.namespace)
@@ -109,17 +113,22 @@ class DeploymentState(object):
             underscored = _under_score(new_item["kind"])
 
             if self.dry_run:
-                log.info("{}: {}/{}".format(action.title(), underscored, metadata_name))
-                for line in json.dumps(new_item, sort_keys=True, indent=2, separators=(',', ': ')).splitlines():
+                log.info("{}: {}/{}".format(
+                    action.title(), underscored, metadata_name))
+                for line in json.dumps(
+                        new_item, sort_keys=True,
+                        indent=2, separators=(',', ': ')).splitlines():
                     log.debug(line)
             else:
-                log.debug("{}: {}/{}".format(action.title(), underscored, metadata_name))
+                log.debug("{}: {}/{}".format(
+                    action.title(), underscored, metadata_name))
                 try:
                     for line in diff:
                         log.debug(line)
                 except TypeError:
                     pass
-                method = getattr(api, '{}_namespaced_{}'.format(action, underscored))
+                method = getattr(api, '{}_namespaced_{}'.format(
+                    action, underscored))
                 method(*args)
 
     def get_api(self, api_version):
@@ -139,8 +148,10 @@ class DeploymentState(object):
             api = self.get_api(api_version)
             current = None
             try:
-                reader = self.get_method(api, 'read', 'namespaced', _under_score(kind))
-                current = serialize(reader(name, self.namespace, pretty=False, export=True))
+                reader = self.get_method(
+                    api, 'read', 'namespaced', _under_score(kind))
+                current = serialize(
+                    reader(name, self.namespace, pretty=False, export=True))
             except client.rest.ApiException as e:
                 if e.status == 404:
                     pass
@@ -159,9 +170,12 @@ class DeploymentState(object):
                 log.info("{}: {}/{}".format(action.title(), underscored, name))
             else:
                 try:
-                    log.debug("{}: {}/{}".format(action.title(), underscored, name))
-                    deleter = self.get_method(api, 'delete', 'namespaced', underscored)
-                    deleter(name, self.namespace, client.V1DeleteOptions(orphan_dependents=False))
+                    log.debug("{}: {}/{}".format(
+                        action.title(), underscored, name))
+                    deleter = self.get_method(
+                        api, 'delete', 'namespaced', underscored)
+                    deleter(name, self.namespace,
+                            client.V1DeleteOptions(orphan_dependents=False))
                 except client.rest.ApiException as e:
                     if e.status == 404:
                         pass

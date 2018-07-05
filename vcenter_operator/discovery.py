@@ -58,7 +58,8 @@ class DnsDiscovery(object):
                     return
 
     def remote_soa_serial(self):
-        for message in xfr(self.ip, self.domain, port=self.port, use_udp=False, rdtype=SOA, keyname=self.keyname,
+        for message in xfr(self.ip, self.domain, port=self.port,
+                           use_udp=False, rdtype=SOA, keyname=self.keyname,
                            keyring=self.keyring):
             for answer in message.answer:
                 if answer.rdtype == SOA:
@@ -75,7 +76,8 @@ class DnsDiscovery(object):
         for item in six.itervalues(self._patterns):
             item.accumulator = set()
 
-        for message in xfr(self.ip, self.domain, port=self.port, use_udp=False, rdtype=self.rdtype,
+        for message in xfr(self.ip, self.domain, port=self.port,
+                           use_udp=False, rdtype=self.rdtype,
                            keyname=self.keyname, keyring=self.keyring):
             for answer in message.answer:
                 if answer.rdtype in [A, AAAA, CNAME] and answer.name:

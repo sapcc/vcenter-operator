@@ -1,8 +1,8 @@
 import argparse
 import logging
+import os
 import re
 import sys
-import os
 from time import sleep
 
 import six
@@ -24,7 +24,9 @@ def main():
     args = _build_arg_parser().parse_args(sys.argv[1:])
     global_options = {'dry_run': str(args.dry_run)}
 
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(process)d %(levelname)s %(message)s')
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)-15s %(process)d %(levelname)s %(message)s')
     logging.getLogger('kubernetes').setLevel(logging.WARNING)
 
     try:
@@ -32,14 +34,15 @@ def main():
         _, context = k8s_config.list_kube_config_contexts()
         region = context['context']['cluster']
         domain = 'cc.{}.cloud.sap'.format(region)
-        global_options['own_namespace'] = 'kube-system'  # context['context']['namespace']
+        global_options['own_namespace'] = 'kube-system'
         global_options['incluster'] = False
     except IOError:
         if not 'KUBERNETES_SERVICE_HOST' in os.environ:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
         global_options['incluster'] = True
-        with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
+        with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace',
+                  'r') as f:
             global_options['own_namespace'] = f.read()
         with open('/etc/resolv.conf', 'r') as f:
             for l in f:

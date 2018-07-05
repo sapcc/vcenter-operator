@@ -55,9 +55,12 @@ except ImportError:
 
 class Templates(Enum):
     max = ['anoxxxxxxxxxxxxxxxxx', 'axxxxxxxxxxxxxxxxxno']
-    long = ['CvcvnoCvcvCvcv', 'CvcvCvcvnoCvcv', 'CvcvCvcvCvcvno', 'CvccnoCvcvCvcv', 'CvccCvcvnoCvcv', 'CvccCvcvCvcvno',
-            'CvcvnoCvccCvcv', 'CvcvCvccnoCvcv', 'CvcvCvccCvcvno', 'CvcvnoCvcvCvcc', 'CvcvCvcvnoCvcc', 'CvcvCvcvCvccno',
-            'CvccnoCvccCvcv', 'CvccCvccnoCvcv', 'CvccCvccCvcvno', 'CvcvnoCvccCvcc', 'CvcvCvccnoCvcc', 'CvcvCvccCvccno',
+    long = ['CvcvnoCvcvCvcv', 'CvcvCvcvnoCvcv', 'CvcvCvcvCvcvno',
+            'CvccnoCvcvCvcv', 'CvccCvcvnoCvcv', 'CvccCvcvCvcvno',
+            'CvcvnoCvccCvcv', 'CvcvCvccnoCvcv', 'CvcvCvccCvcvno',
+            'CvcvnoCvcvCvcc', 'CvcvCvcvnoCvcc', 'CvcvCvcvCvccno',
+            'CvccnoCvccCvcv', 'CvccCvccnoCvcv', 'CvccCvccCvcvno',
+            'CvcvnoCvccCvcc', 'CvcvCvccnoCvcc', 'CvcvCvccCvccno',
             'CvccnoCvcvCvcc', 'CvccCvcvnoCvcc', 'CvccCvcvCvccno']
     medium = ['CvcnoCvc', 'CvcCvcno']
     basic = ['aaanaaan', 'aannaaan', 'aaannaaa']
@@ -74,7 +77,8 @@ CHARACTER_CLASSES = {
     'a': 'AEIOUaeiouBCDFGHJKLMNPQRSTVWXYZbcdfghjklmnpqrstvwxyz',
     'n': '0123456789',
     'o': "@&%?,=[]_:-+*$#!'^~;()/.",
-    'x': 'AEIOUaeiouBCDFGHJKLMNPQRSTVWXYZbcdfghjklmnpqrstvwxyz0123456789!@#$%^&*()'
+    'x': 'AEIOUaeiouBCDFGHJKLMNPQRSTVWXYZ'
+         'bcdfghjklmnpqrstvwxyz0123456789!@#$%^&*()'
 }
 
 DEFAULT_NAMESPACE = six.b('com.lyndir.masterpassword')
@@ -83,11 +87,15 @@ DEFAULT_NAMESPACE = six.b('com.lyndir.masterpassword')
 class MasterPassword(object):
     def __init__(self, name, password, namespace=None):
         self.namespace = namespace or DEFAULT_NAMESPACE
-        salt = self.namespace + struct.pack('!I', len(name)) + name.encode('utf-8')
+        salt = self.namespace + struct.pack('!I',
+                                            len(name)) + name.encode('utf-8')
         self.key = hash(password, salt)
 
     def seed(self, site, counter=1):
-        message = self.namespace + struct.pack('!I', len(site)) + site.encode('utf-8') + struct.pack('!I', counter)
+        message = self.namespace + \
+                  struct.pack('!I', len(site)) + \
+                  site.encode('utf-8') + \
+                  struct.pack('!I', counter)
         return HMAC(self.key, message, sha256).digest()
 
     def derive(self, type, site, counter=1):
@@ -109,6 +117,7 @@ class MasterPassword(object):
 
 def main():
     import sys
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)-15s %(message)s')
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)-15s %(message)s')
     mpw = MasterPassword(sys.argv[1], sys.argv[2])
     print(mpw.derive(sys.argv[3], sys.argv[4]))
