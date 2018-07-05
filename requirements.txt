@@ -3,10 +3,9 @@
 attrs
 dnspython
 scrypt
-requests[secure]
 six
 enum34;python_version=='2.7'
 pyvmomi
 jinja2
 jsonpatch
-kubernetes < 2
+kubernetes<5

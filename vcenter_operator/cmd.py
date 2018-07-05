@@ -33,10 +33,12 @@ def main():
         region = context['context']['cluster']
         domain = 'cc.{}.cloud.sap'.format(region)
         global_options['own_namespace'] = 'kube-system'  # context['context']['namespace']
+        global_options['incluster'] = False
     except IOError:
         if not 'KUBERNETES_SERVICE_HOST' in os.environ:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
+        global_options['incluster'] = True
         with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r') as f:
             global_options['own_namespace'] = f.read()
         with open('/etc/resolv.conf', 'r') as f:

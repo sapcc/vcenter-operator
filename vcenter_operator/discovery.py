@@ -33,8 +33,7 @@ class DnsDiscovery(object):
             self.keyring = tsigkeyring.from_text({self.keyname: rndc_key})
 
         self.namespace = global_options['namespace']
-        token = client.configuration.auth_settings().get('BearerToken', None)
-        self.cluster_internal = token and token['type'] == 'api_key' and not not token['value']
+        self.cluster_internal = global_options['incluster']
         self.ip = global_options.get('dns_ip', None)
         self.port = int(global_options.get('dns_port', 53))
         if not self.ip:
@@ -44,8 +43,9 @@ class DnsDiscovery(object):
         self._patterns[pattern].callbacks.append(callback)
 
     def _discover_dns(self):
-        for item in client.CoreV1Api().list_namespaced_service(namespace=self.namespace,
-                                                               label_selector='component=designate,type=backend').items:
+        for item in client.CoreV1Api().list_namespaced_service(
+                namespace=self.namespace,
+                label_selector='component=designate,type=backend').items:
             spec = item.spec
             for port in spec.ports:
                 if self.cluster_internal:

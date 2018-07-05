@@ -50,7 +50,7 @@ class DeploymentState(object):
             if id in self.items:
                 log.warning("Duplicate item #{}".format(id))
             api = [p.capitalize() for p in id[0].split('/', 1)]
-            klass = getattr(client, "".join([api[-1], id[1]]))
+            klass = getattr(client, "".join(api + [id[1]]))
             self.items[id] = serialize(api_client._ApiClient__deserialize_model(item, klass))
 
     def delta(self, other):
