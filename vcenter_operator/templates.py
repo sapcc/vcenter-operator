@@ -86,8 +86,10 @@ class CustomResourceDefinitionLoader(BaseLoader):
 
     def get_source(self, environment, template):
         if template in self.mapping:
-            source = self.mapping[template]
-            return source, None, lambda: source == self.mapping.get(template)
+            version, source = self.mapping[template]
+            return source, None, lambda: \
+                template in self.mapping and \
+                (version, source) == self.mapping.get(template)
         raise TemplateNotFound(template)
 
     def list_templates(self):
@@ -112,23 +114,23 @@ class CustomResourceDefinitionLoader(BaseLoader):
         # self.resource_version = resp['metadata']['resourceVersion']
         for item in resp['items']:
             try:
+                version = item['metadata']['resourceVersion']
                 name = item['metadata']['name']
                 # This, however, does seem to work
                 # self.resource_version = max(
-                #    item['metadata']['resourceVersion'],
+                #    version,
                 #    self.resource_version)
                 scope = 'vcenter_' + item['metadata']['scope']
                 namespace = item['metadata']['namespace']
                 template = item['template']
                 path = '/'.join([scope,namespace,name]) + '.yaml.j2'
-                mapping[path] = template
+                mapping[path] = (version, template)
             except KeyError as e:
                 LOG.error("Failed for %s/%s due to missing key %s",
                           namespace,
                           name,
                           e)
         self.mapping = mapping
-
 
     @staticmethod
     def _custom_resource_definition():
