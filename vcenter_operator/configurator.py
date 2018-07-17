@@ -3,12 +3,12 @@ import json
 import logging
 import re
 import ssl
+import six
+
 from collections import deque
 from contextlib import contextmanager
 from os.path import commonprefix
 from socket import error as socket_error
-
-import six
 from kubernetes import client
 from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
