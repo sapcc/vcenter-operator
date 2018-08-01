@@ -1,8 +1,8 @@
 import hashlib
 import logging
 
-from jinja2 import BaseLoader, ChoiceLoader, FileSystemLoader, Environment, \
-    PackageLoader, contextfilter, TemplateNotFound
+from jinja2 import BaseLoader, ChoiceLoader, Environment, \
+    contextfilter, TemplateNotFound
 from kubernetes import client
 
 from masterpassword import MasterPassword
@@ -162,9 +162,10 @@ class CustomResourceDefinitionLoader(BaseLoader):
             return
 
         api = client.ApiextensionsV1beta1Api()
-        self._crd = CustomResourceDefinitionLoader._custom_resource_definition()
+        self._crd = \
+            CustomResourceDefinitionLoader._custom_resource_definition()
         try:
-            response = api.create_custom_resource_definition(self._crd)
+            api.create_custom_resource_definition(self._crd)
         except client.rest.ApiException as e:
             pass
 
@@ -173,8 +174,7 @@ env = Environment(
     loader=ChoiceLoader([
         CustomResourceDefinitionLoader(),
         ConfigMapLoader(),
-        FileSystemLoader('/var/lib/kolla/config_files', followlinks=True),
-        PackageLoader('vcenter_operator', 'templates')]))
+    ]))
 
 env.filters['ini_escape'] = _ini_escape
 env.filters['quote'] = _quote
