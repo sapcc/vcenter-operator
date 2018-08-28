@@ -10,7 +10,7 @@ import yaml
 from jsonpointer import resolve_pointer
 from kubernetes import client
 
-log = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 api_client = client.ApiClient()
 
@@ -51,7 +51,7 @@ class DeploymentState(object):
         for item in yaml.safe_load_all(stream):
             id = (item['apiVersion'], item['kind'], item['metadata']['name'])
             if id in self.items:
-                log.warning("Duplicate item #{}".format(id))
+                LOG.warning("Duplicate item #{}".format(id))
             api = [p.capitalize() for p in id[0].split('/', 1)]
             klass = getattr(client, "".join(api + [id[1]]))
             ser = api_client._ApiClient__deserialize_model(item, klass)
@@ -113,22 +113,23 @@ class DeploymentState(object):
             underscored = _under_score(new_item["kind"])
 
             if self.dry_run:
-                log.info("{}: {}/{}".format(
+                LOG.info("{}: {}/{}".format(
                     action.title(), underscored, metadata_name))
                 for line in json.dumps(
                         new_item, sort_keys=True,
                         indent=2, separators=(',', ': ')).splitlines():
-                    log.debug(line)
+                    LOG.debug(line)
             else:
-                log.debug("{}: {}/{}".format(
+                LOG.debug("{}: {}/{}".format(
                     action.title(), underscored, metadata_name))
                 try:
                     for line in diff:
-                        log.debug(line)
+                        LOG.debug(line)
                 except TypeError:
                     pass
                 method = getattr(api, '{}_namespaced_{}'.format(
                     action, underscored))
+
                 method(*args)
 
     def get_api(self, api_version):
@@ -144,6 +145,7 @@ class DeploymentState(object):
         return getattr(api, '_'.join(items))
 
     def apply(self):
+        retry_list = []
         for (api_version, kind, name), target in six.iteritems(self.items):
             api = self.get_api(api_version)
             current = None
@@ -157,8 +159,19 @@ class DeploymentState(object):
                     pass
                 else:
                     six.reraise(*sys.exc_info())
+            try:
+                self._apply_delta(api, current, target)
+            except client.rest.ApiException as e:
+                if e.status == 422:
+                    retry_list.append((api, current, target))
+                else:
+                    six.reraise(*sys.exc_info())
 
-            self._apply_delta(api, current, target)
+        for api, current, target in retry_list:
+            try:
+                self._apply_delta(api, current, target)
+            except client.rest.ApiException as e:
+                LOG.exception("Could not apply change")
 
         for (api_version, kind, name), action in six.iteritems(self.actions):
             if action != 'delete':
@@ -167,10 +180,10 @@ class DeploymentState(object):
             api = self.get_api(api_version)
             underscored = _under_score(kind)
             if self.dry_run:
-                log.info("{}: {}/{}".format(action.title(), underscored, name))
+                LOG.info("{}: {}/{}".format(action.title(), underscored, name))
             else:
                 try:
-                    log.debug("{}: {}/{}".format(
+                    LOG.debug("{}: {}/{}".format(
                         action.title(), underscored, name))
                     deleter = self.get_method(
                         api, 'delete', 'namespaced', underscored)
