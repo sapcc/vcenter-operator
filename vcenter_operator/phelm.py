@@ -54,8 +54,13 @@ class DeploymentState(object):
                 LOG.warning("Duplicate item #{}".format(id))
             api = [p.capitalize() for p in id[0].split('/', 1)]
             klass = getattr(client, "".join(api + [id[1]]))
-            ser = api_client._ApiClient__deserialize_model(item, klass)
-            self.items[id] = serialize(ser)
+            try:
+                ser = api_client._ApiClient__deserialize_model(item, klass)
+                self.items[id] = serialize(ser)
+            except AttributeError:
+                LOG.error("Failed to deserialize model {} {}".format(
+                    klass, item
+                ))
 
     def delta(self, other):
         delta = DeploymentState(namespace=self.namespace)
