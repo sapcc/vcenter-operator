@@ -10,7 +10,7 @@ from masterpassword import MasterPassword
 LOG = logging.getLogger(__name__)
 
 
-def _quote(value):
+def _ini_quote(value):
     return '"{}"'.format(_ini_escape(value).replace('"', '\\"'))
 
 
@@ -204,7 +204,8 @@ env = Environment(
     ]))
 
 env.filters['ini_escape'] = _ini_escape
-env.filters['quote'] = _quote
+env.filters['ini_quote'] = _ini_quote
+env.filters['quote'] = _ini_quote
 env.filters['derive_password'] = _derive_password
 env.filters['sha256sum'] = _sha256sum
 env.filters['render'] = _render
