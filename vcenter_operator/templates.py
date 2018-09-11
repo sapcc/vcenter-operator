@@ -43,6 +43,24 @@ def _render(ctx, template_name):
     return template.render(ctx)
 
 
+_SAVED_DEFAULTS = {}
+
+
+def restore_defaults(env):
+    global _SAVED_DEFAULTS
+    for k in _SAVED_DEFAULTS:
+        setattr(env, k, _SAVED_DEFAULTS[k])
+    _SAVED_DEFAULTS.clear()
+
+
+def store_default(env, k):
+    global _SAVED_DEFAULTS
+    if k in _SAVED_DEFAULTS:
+        return
+
+    _SAVED_DEFAULTS[k] = getattr(env, k)
+
+
 class ConfigMapLoader(BaseLoader):
     def __init__(self):
         self.mapping = {}
@@ -50,6 +68,7 @@ class ConfigMapLoader(BaseLoader):
 
     def get_source(self, environment, template):
         if template in self.mapping:
+            restore_defaults(environment)
             source = self.mapping[template]
             return source, None, lambda: source == self.mapping.get(template)
         raise TemplateNotFound(template)
@@ -86,10 +105,17 @@ class CustomResourceDefinitionLoader(BaseLoader):
 
     def get_source(self, environment, template):
         if template in self.mapping:
-            version, source = self.mapping[template]
+            version, source, jinja2_options = self.mapping[template]
+            restore_defaults(environment)
+
+            for k in jinja2_options:
+                if hasattr(environment, k):
+                    store_default(environment, k)
+                    setattr(environment, k, jinja2_options[k])
+
             return source, None, lambda: \
                 template in self.mapping and \
-                (version, source) == self.mapping.get(template)
+                (version, source, jinja2_options) == self.mapping.get(template)
         raise TemplateNotFound(template)
 
     def list_templates(self):
@@ -122,9 +148,10 @@ class CustomResourceDefinitionLoader(BaseLoader):
                 #    self.resource_version)
                 scope = 'vcenter_' + item['metadata']['scope']
                 namespace = item['metadata']['namespace']
+                jinja2_options = item['metadata'].get('jinja2_options', {})
                 template = item['template']
                 path = '/'.join([scope,namespace,name]) + '.yaml.j2'
-                mapping[path] = (version, template)
+                mapping[path] = (version, template, jinja2_options)
             except KeyError as e:
                 LOG.error("Failed for %s/%s due to missing key %s",
                           namespace,
