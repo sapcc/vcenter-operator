@@ -42,7 +42,7 @@ Conventions
 
 The vcenter operator relies on the following conventions:
 
-- The operator relies on having dns as a kubernetes service with the labels `component=designate,type=backend`, and polls the DNS behind it.
+- The operator relies on having dns as a kubernetes service with the labels `component=mdns,type=backend`, and polls the DNS behind it.
 
 - It polls the last search domain of the `resolv.conf`.
 
