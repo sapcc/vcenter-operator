@@ -45,7 +45,7 @@ class DnsDiscovery(object):
     def _discover_dns(self):
         for item in client.CoreV1Api().list_namespaced_service(
                 namespace=self.namespace,
-                label_selector='component=designate,type=backend').items:
+                label_selector='component=mdns,type=backend').items:
             spec = item.spec
             for port in spec.ports:
                 if self.cluster_internal:
