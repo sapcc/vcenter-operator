@@ -53,7 +53,7 @@ def main():
 
 
     global_options['namespace'] = 'monsoon3'
-    global_options['domain'] = domain
+    global_options['domain'] = domain.strip()
 
     configurator = Configurator(domain, global_options)
     configurator.poll_config()
