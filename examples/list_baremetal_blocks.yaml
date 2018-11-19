@@ -1,0 +1,8 @@
+apiVersion: kos-operator.stable.sap.cc/v1
+kind: KosQuery
+metadata:
+  name: baremetal-blocks
+  namespace: monsoon3
+context: ironic@Default/service
+commands:
+  blocks: "set(node.name.split('-')[-1] for node in os.baremetal.nodes())"

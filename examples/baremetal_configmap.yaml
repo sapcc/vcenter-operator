@@ -1,0 +1,15 @@
+apiVersion: kos-operator.stable.sap.cc/v1
+kind: KosTemplate
+metadata:
+  name: baremetal-configmap
+  namespace: monsoon3
+requirements:
+- name: baremetal-blocks
+- name: missing
+template: |
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test
+  data:
+    a: {{ blocks | join(',') | quote }}

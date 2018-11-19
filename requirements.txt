@@ -1,11 +1,13 @@
 # env LDFLAGS="-L$(brew --prefix openssl@1.1)/lib" CFLAGS="-I$(brew --prefix openssl@1.1)/include" pip3 install --no-binary :all: cryptography
 # cryptography >= 1.6
+openstacksdk>=0.19.0
+python-openstackclient
+python-ironicclient
 attrs
-dnspython
 scrypt
 six
 enum34;python_version=='2.7'
-pyvmomi
+functools32;python_version=='2.7'
 jinja2
 jsonpatch
-kubernetes<5
+kubernetes

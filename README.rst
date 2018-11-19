@@ -1,61 +1,85 @@
-VCenter Operator
+KOS Operator
 =============
 
-The VCenter Operator automatically configures and deploys cinder and nova-compute nodes corresponding to the discovered vcenters and clusters.
-It follows the convention over configuration principle to keep the configuration to a minimum. It relies heavily on a other configmaps being deployed by `openstack-helm <https://github.com/sapcc/openstack-helm>`_  and should be best deployed with it.
-
+The KOS Operator configures kubernetes (K) based on the results of openstack (OS) api calls
 
 Configuration
 -------------------
+The operator relies on ``OpenstackSeeds`` from the openstack-seeder_, which are queried first.
+So, their information is available for subsequent resources.
+They are followed by ``KosQueries``, which can use the credentials in the ``OpenstackSeeds`` to query openstack apis,
+and store the results in variables, which are then available to all ``KosTemplates`` resources.
 
-Some basic configuration is however necessary. The VCenter Operator has to be deployed in a way that it allows it to deploy and modify resources within the configured target namespace.
-The following values are required to be stored in a configmap named `vcenter-operator` in the same namespace as the running pod, and expects the following values:
-
-
-namespace
-    The namespace to deploy into
-
-username
-    The username to use to log on the vcenter
-
-password
-    A password used as a seed for the `master-password algorithm <http://masterpasswordapp.com/algorithm.html>` to generate long-form passwords specific for each vcenter discovered.
-
-cinder_agent_image
-    A docker image for a vcenter cinder volume
-
-cinder_sentry_dsn
-    Optionally, a Sentry DSN for the process
-
-neutron_agent_image
-    A docker image for the networking side of the compute node (currently only `Networking DVS Driver <https://github.com/sapcc/networking-dvs>`_)
-
-nova_agent_image
-    A docker image for the nova compute process.
-
-cinder_sentry_dsn/neutron_sentry_dsn/nova_sentry_dsn
-    Optionally, Sentry DSN, which will exported as environment variables
-
-
-Conventions
+Convention
 -------------------
 
-The vcenter operator relies on the following conventions:
+KosQuery
+^^^^^^^^^^^^^^^^
+Queries can be issued by the resource definition ``KosQuery``.
 
-- The operator relies on having dns as a kubernetes service with the labels `component=mdns,type=backend`, and polls the DNS behind it.
+Let's have a look at the following query:
 
-- It polls the last search domain of the `resolv.conf`.
+::
+    apiVersion: kos-operator.stable.sap.cc/v1
+    kind: KosQuery
+    metadata:
+        name: baremetal-nodes
+        namespace: monsoon3
+    context: ironic@Default/service
+    commands:
+      nodes: "[node for node in os.baremetal.nodes()]"
 
-- Within that domain, the vcenter is expected to match `vc-[a-z]+-[0-9]+`.
+context
+    With the ``context`` attribute one specifies in which context the API request should be issued.
+    The format is ``<user name>@<domain name>/<project name>``
+    The credentials are taken form the OpenstackSeeds for the openstack-seeder_
+    In the example, it would be the ironic service user in the Default domain and service project.
 
--  The operator expects to be able to log on with username and the long form password derived by the given user and password for the fully-qualified domain name of the vcenter.
+commands
+    Commands are pairs of a name and a python command.
+    The python command will be executed, and the result will be made available to all templates (``KosTemplate``) under the given name.
+    Currently, you can query openstack with the openstacksdk_ connection under the name ``os``.
+    A conversion to a list might be sensible to ensure that we have actual objects instead of an iterator, which can be queried only once.
 
-- Within the VCenter, the name of the VSphere datacenter will be used as the availability-zone name (in lower-case) for each entity child.
 
-- Within a Datacenter, clusters prefixed with `production` will be used as compute nodes. The name of the compute-host will be the `nova-compute-<suffix>`, where `suffix` is whatever stands after `production` in the cluster-name.
+KosTemplate
+^^^^^^^^^^^^^^^^^^
 
-- Within that cluster, the nova storage will be derived by looking for mounted storage prefixed by `eph`. The longest common prefix will be used as a search pattern for the storage of the compute node.
+A template can (currently) use any variable defined by any ``KosQuery``.
 
-- The first Port-group within that cluster prefixed with `br-` will be used for the vm networking, and the suffix determines the physical name of the network.
+::
+    apiVersion: kos-operator.stable.sap.cc/v1
+    kind: KosTemplate
+    metadata:
+        name: baremetal-configmap
+        namespace: monsoon3
+    requirements:
+    - name: baremetal-blocks
+    template: |
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+            name: test
+        data:
+            a: {{ blocks | map('string') | join(',') | quote }}
 
-- A cluster prefixed with `storage` will cause the creation of a cinder nodes with the name `cinder-volume-vmware-<suffix>`. This is only provisional and should be replaced by one per datacenter.
+
+requirements
+    ``requirements`` is a list of requirements, which have to exists for the template to be actually applied.
+    You have to give at least the name of the requirement, the namespace is then assumed to be the same as the template.
+    If not, you can specify it with ``namespace``.
+
+    As there is a high risk of duplicate names, it is sensible to be more specific about the source of variables.
+    Eventually, the variables visible will be limited to those generated by the under requirements.
+
+template
+    The template is a jinja2 template, and all standard filters are available.
+    If you want generate a ``KosTemplate`` resource and are bothered by having to quote the variable-start- and end quotes all the time,
+    you can configure jinja2 to use different ones by adding to the metadata a map named ``jinja2_options``,
+    setting ``variable_start_string``, ``variable_end_string`` (e.g. to ``{=`` and ``=}``).
+    Any option here will be passed for the jinja2 interpreter (see jinja2_options_ for more).
+
+
+.. _openstack-seeder: https://github.com/sapcc/kubernetes-operators/tree/master/openstack-seeder
+.. _openstacksdk: https://github.com/openstack/openstacksdk
+.. _jinja2_options: http://jinja.pocoo.org/docs/2.10/api/#jinja2.Environment

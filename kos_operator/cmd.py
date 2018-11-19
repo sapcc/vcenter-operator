@@ -9,7 +9,6 @@ import six
 from kubernetes import config as k8s_config
 
 from .configurator import Configurator
-from .discovery import DnsDiscovery
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ def main():
     global_options = {'dry_run': str(args.dry_run)}
 
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format='%(asctime)-15s %(process)d %(levelname)s %(message)s')
     logging.getLogger('kubernetes').setLevel(logging.WARNING)
 
@@ -52,12 +51,16 @@ def main():
     if 'SERVICE_DOMAIN' in os.environ:
         domain = os.environ['SERVICE_DOMAIN']
 
+
+    global_options['namespace'] = 'monsoon3'
+    global_options['domain'] = domain
+
     configurator = Configurator(domain, global_options)
     configurator.poll_config()
-    discovery = DnsDiscovery(domain, configurator.global_options)
-    discovery.register(re.compile(six.b('\Avc-[a-z]+-\d+\Z')), configurator)
 
     while True:
-        discovery.discover()
         configurator.poll()
         sleep(10)
+
+if __name__ == "__main__":
+    main()
