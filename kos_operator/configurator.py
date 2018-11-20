@@ -55,14 +55,13 @@ class Configurator(object):
 
         results = {}
 
-        for name in six.iterkeys(self._items):
-            if name[0] != 'KosTemplate':
+        for name, item in six.iteritems(self._items):
+            if not item.do_execute:
                 continue
             try:
                 self._execute_item(results, state, name)
             except LookupError as e:
                 LOG.warning("Missing requirements for %s: %s", name, e)
-
 
         if len(self.states) > 1:
             last = self.states.popleft()

@@ -1,5 +1,7 @@
 import abc
 import logging
+import requests
+import json
 import six
 
 try:
@@ -8,49 +10,12 @@ except ImportError:
     from functools import lru_cache
 
 from kubernetes import client
-
-from keystoneauth1 import session
-from keystoneauth1.identity import v3
 from openstack import connection
 
 from .templates import CRD_LOADER
 from .templates import env
 
 LOG = logging.getLogger(__name__)
-
-class _OSCInstance(object):
-    session=None
-    region_name=None
-    _region_name=None
-    endpoint_type='public'
-    interface='public'
-    insecure=False
-    ca_cert=None
-    _api_version={
-        'baremetal': '1.46'
-    }
-
-    def __init__(self, session):
-        super(_OSCInstance, self).__init__()
-        self.session = session
-
-    def get_endpoint_for_service_type(self, *args, **kwargs):
-        return None
-
-
-@lru_cache()
-def _get_session(url, project, domain, user, password):
-    auth = v3.Password(
-        auth_url=url,
-        project_name=project,
-        project_domain_name=domain,
-        username=user,
-        user_domain_name=domain,
-        password=password,
-    )
-          
-    return session.Session(auth=auth)
-
 
 @lru_cache()
 def _get_connection(url, project, domain, user, password):
@@ -63,7 +28,6 @@ def _get_connection(url, project, domain, user, password):
         password=password,
     )
 
-
 @six.add_metaclass(abc.ABCMeta)
 class CustomResourceDefinitionBase(object):
     _crd = None
@@ -71,6 +35,7 @@ class CustomResourceDefinitionBase(object):
 
     def __init__(self):
         self.requirements = []
+        self.do_execute = False
 
     @classmethod
     def poll(cls):
@@ -243,6 +208,7 @@ class KosQuery(CustomResourceDefinitionBase):
     def _process_crd_item(self, item):
         super(KosQuery, self)._process_crd_item(item)
         self.code = item['python']
+        self.do_execute = item['metadata'].get('execute', False)
         self.user, project = item['context'].split('@', 1)
         self.domain, self.project = project.split('/', 1)
 
@@ -280,7 +246,12 @@ class KosQuery(CustomResourceDefinitionBase):
             LOG.warning("Failed to get connection to %s", url)
             _get_connection.cache_clear()
 
-        six.exec_(self.code, {'os': self.connection}, variables)
+        global_vars = {
+            'json': json,
+            'os': self.connection,
+            'requests': requests
+        }
+        six.exec_(self.code, global_vars, variables)
         return variables
         
 
@@ -288,6 +259,10 @@ class KosTemplate(TemplateBase):
     API_GROUP = 'kos-operator.stable.sap.cc'
     _crd = None
     _resource_version = 0
+
+    def __init__(self):
+        super(KosTemplate, self).__init__()
+        self.do_execute = True
 
     @classmethod
     def _custom_resource_definition(cls):
