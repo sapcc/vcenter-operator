@@ -49,6 +49,7 @@ python
     Currently, you can query openstack with the openstacksdk_ connection under the name ``os``.
     A conversion to a list might be sensible to ensure that we have actual objects instead of an iterator, which can only be iterated over once
 
+    Under ``examples/test.py`` you'll find a python script, which provides you a template to test the code outside of the scope of the operator.
 
 KosTemplate
 ^^^^^^^^^^^^^^^^^^
