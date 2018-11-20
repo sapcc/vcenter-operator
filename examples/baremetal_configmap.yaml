@@ -5,7 +5,6 @@ metadata:
   namespace: monsoon3
 requirements:
 - name: baremetal-blocks
-- name: missing
 template: |
   apiVersion: v1
   kind: ConfigMap

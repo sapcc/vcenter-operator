@@ -27,6 +27,7 @@ def main():
         level=logging.INFO,
         format='%(asctime)-15s %(process)d %(levelname)s %(message)s')
     logging.getLogger('kubernetes').setLevel(logging.WARNING)
+    logging.getLogger('kos_operator').setLevel(logging.DEBUG)
 
     try:
         k8s_config.load_kube_config()

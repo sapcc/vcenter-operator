@@ -30,8 +30,20 @@ class Configurator(object):
     def poll_config(self):
         self._items = dict()
         for crd in CRDS:
-            for name, item in crd.poll(self.global_options):
+            for name, item in crd.poll():
                   self._items[name] = item
+
+    def _execute_item(self, results, state, name):
+        if name in results:
+            return results[name]
+
+        variables = self.global_options.copy()
+        item = self._items[name]
+        for r in item.requirements:
+            variables.update(self._execute_item(results, state, r))
+        
+        return item.execute(state, variables)
+
 
     def poll(self):
         self.poll_config()
@@ -41,12 +53,16 @@ class Configurator(object):
             dry_run=(self.global_options.get('dry_run', 'False') == 'True'))
         self.states.append(state)
 
-        for name, item in six.iteritems(self._items):
-            missing = [r for r in item.requirements if r not in self._items]
-            if not missing:
-                item.execute(state)
-            else:
-                LOG.warning("Missing requirements for %s: %s", name, missing)
+        results = {}
+
+        for name in six.iterkeys(self._items):
+            if name[0] != 'KosTemplate':
+                continue
+            try:
+                self._execute_item(results, state, name)
+            except LookupError as e:
+                LOG.warning("Missing requirements for %s: %s", name, e)
+
 
         if len(self.states) > 1:
             last = self.states.popleft()

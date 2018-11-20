@@ -3,6 +3,9 @@ kind: KosQuery
 metadata:
   name: baremetal-blocks
   namespace: monsoon3
+requirements:
+- name: ironic-seed
+  kind: OpenstackSeed
 context: ironic@Default/service
-commands:
-  blocks: "set(node.name.split('-')[-1] for node in os.baremetal.nodes())"
+python: |
+  blocks = set(node.name.split('-')[-1] for node in os.baremetal.nodes())

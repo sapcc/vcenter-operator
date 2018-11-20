@@ -69,12 +69,11 @@ class CustomResourceDefinitionBase(object):
     _crd = None
     _resource_version = 0
 
-    def __init__(self, options):
+    def __init__(self):
         self.requirements = []
-        self.options = options
 
     @classmethod
-    def poll(cls, options):
+    def poll(cls):
         if not cls._crd:
             cls._create_custom_resource_definitions()
 
@@ -95,7 +94,7 @@ class CustomResourceDefinitionBase(object):
             namespace = metadata.get('namespace', 'missing namespace')
             name = metadata.get('name', 'missing name')
             try:
-                obj = cls(options)
+                obj = cls()
                 obj.requirements = [
                     (r.get('kind', 'KosQuery'),
                      r.get('namespace', namespace),
@@ -114,8 +113,8 @@ class CustomResourceDefinitionBase(object):
                             name,
                             e)
     
-    def execute(self, state):
-        pass
+    def execute(self, state, variables):
+        return variables
 
     @abc.abstractmethod
     def _process_crd_item(self, item):
@@ -178,21 +177,23 @@ class OpenstackSeed(CustomResourceDefinitionBase):
         )
     
     def _process_crd_item(self, item):
-        self.options[item['metadata']['name']] = item['spec']
+        self.item = item
+    
+    def execute(self, state, variables):
+        seeds = variables.get('seeds', {})
+        seeds[self.item['metadata']['name']] = self.item['spec']
+        variables['seeds'] = seeds
+        return variables
 
 class TemplateBase(CustomResourceDefinitionBase):
-    def __init__(self, options):
-        super(TemplateBase, self).__init__(options)
+    def __init__(self):
+        super(TemplateBase, self).__init__()
         self.mapping = CRD_LOADER.mapping
         self.path = None
 
     def _process_crd_item(self, item):
         version = item['metadata']['resourceVersion']
         name = item['metadata']['name']
-        # This, however, does seem to work
-        # self.resource_version = max(
-        #    version,
-        #    self.resource_version)
         scope = item['metadata'].get('scope') or ''
         namespace = item['metadata']['namespace']
         jinja2_options = item['metadata'].get('jinja2_options', {})
@@ -201,13 +202,13 @@ class TemplateBase(CustomResourceDefinitionBase):
         self.template_name = '/'.join([scope,namespace,name]) + '.yaml.j2'
         self.mapping[self.template_name] = (version, template, jinja2_options)
     
-    def execute(self, state, options=None):
+    def execute(self, state, variables=None):
         if not self.template_name:
             return
-        options = options or self.options
         template = env.get_template(self.template_name)
-        result = template.render(options)
+        result = template.render(variables)
         state.add(result)
+        return variables
 
 class KosQuery(CustomResourceDefinitionBase):
     API_GROUP = 'kos-operator.stable.sap.cc'
@@ -241,26 +242,12 @@ class KosQuery(CustomResourceDefinitionBase):
 
     def _process_crd_item(self, item):
         super(KosQuery, self)._process_crd_item(item)
-        self.commands = item['commands']
+        self.code = item['python']
         self.user, project = item['context'].split('@', 1)
         self.domain, self.project = project.split('/', 1)
-        self.password = self._get_user_password()
-        _, dns_domain = self.options['domain'].split('.', 1)
-        url = 'https://identity-3.' + dns_domain
-        self.connection = _get_connection(
-            url,
-            self.project,
-            self.domain,
-            self.user,
-            self.password
-        )
 
-        if not self.connection:
-            LOG.warning("Failed to get connection to %s", url)
-            _get_connection.cache_clear()
-
-    def _get_user_password(self):
-        for k in six.itervalues(self.options):
+    def _get_user_password(self, variables):
+        for k in six.itervalues(variables.get('seeds', {})):
             if isinstance(k, dict) and 'domains' in k:
                 domains = k['domains']
                 for domain in domains:
@@ -274,13 +261,27 @@ class KosQuery(CustomResourceDefinitionBase):
         
         LOG.warning("Could not find password for user %s in domain %s", self.user, self.domain)
 
-    def execute(self, state):
+    def execute(self, state, variables):
+        password = self._get_user_password(variables)
+        if not password:
+            return variables
+        
+        _, dns_domain = variables['domain'].split('.', 1)
+        url = 'https://identity-3.' + dns_domain
+        self.connection = _get_connection(
+            url,
+            self.project,
+            self.domain,
+            self.user,
+            password
+        )
+
         if not self.connection:
-            return
-        options = self.options.copy()
-        for key, command in six.iteritems(self.commands):
-            value = eval(command, {'os': self.connection})
-            options[key] = value
+            LOG.warning("Failed to get connection to %s", url)
+            _get_connection.cache_clear()
+
+        six.exec_(self.code, {'os': self.connection}, variables)
+        return variables
         
 
 class KosTemplate(TemplateBase):
@@ -316,9 +317,8 @@ class KosTemplate(TemplateBase):
     def _process_crd_item(self, item):
         super(KosTemplate, self)._process_crd_item(item)
 
-    def execute(self, state):
-        options = self.options.copy()
-        super(KosTemplate, self).execute(state, options)
+    def execute(self, state, variables):
+        return super(KosTemplate, self).execute(state, variables)
 
 CRDS = [
     OpenstackSeed,
