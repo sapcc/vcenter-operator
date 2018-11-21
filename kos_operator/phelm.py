@@ -179,9 +179,6 @@ class DeploymentState(object):
                 LOG.exception("Could not apply change")
 
         for (api_version, kind, name), action in six.iteritems(self.actions):
-            if action != 'delete':
-                continue
-
             api = self.get_api(api_version)
             underscored = _under_score(kind)
             if self.dry_run:
@@ -193,7 +190,7 @@ class DeploymentState(object):
                     deleter = self.get_method(
                         api, 'delete', 'namespaced', underscored)
                     deleter(name, self.namespace,
-                            client.V1DeleteOptions(orphan_dependents=False))
+                            client.V1DeleteOptions(propagation_policy='Background'))
                 except client.rest.ApiException as e:
                     if e.status == 404:
                         pass
