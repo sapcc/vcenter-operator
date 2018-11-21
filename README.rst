@@ -1,25 +1,24 @@
 KOS Operator
-=============
+============
 
 The KOS Operator configures kubernetes (K) based on the results of openstack (OS) api calls
 
 Configuration
--------------------
+-------------
 The operator relies on ``OpenstackSeeds`` from the openstack-seeder_, which are queried first.
 So, their information is available for subsequent resources.
 They are followed by ``KosQueries``, which can use the credentials in the ``OpenstackSeeds`` to query openstack apis,
 and store the results in variables, which are then available to all ``KosTemplates`` resources.
 
-Convention
--------------------
+Custom Resources
+----------------
 
 KosQuery
-^^^^^^^^^^^^^^^^
+^^^^^^^^
 Queries can be issued by the resource definition ``KosQuery``.
 
-Let's have a look at the following query:
+Let's have a look at the following query::
 
-::
     apiVersion: kos-operator.stable.sap.cc/v1
     kind: KosQuery
     metadata:
@@ -30,7 +29,8 @@ Let's have a look at the following query:
     - name: ironic-seed
       kind: OpenstackSeed
     python: |
-      nodes = [node for node in os.baremetal.nodes()]
+        nodes = [node for node in os.baremetal.nodes()]
+
 
 context
     With the ``context`` attribute one specifies in which context the API request should be issued.
@@ -54,9 +54,8 @@ python
 KosTemplate
 ^^^^^^^^^^^^^^^^^^
 
-A template can (currently) use any variable defined by any ``KosQuery``.
+A template can (currently) use any variable defined by any ``KosQuery``::
 
-::
     apiVersion: kos-operator.stable.sap.cc/v1
     kind: KosTemplate
     metadata:
@@ -71,7 +70,6 @@ A template can (currently) use any variable defined by any ``KosQuery``.
             name: test
         data:
             a: {{ blocks | map('string') | join(',') | quote }}
-
 
 requirements
     We need some data, reasonably from a ``KosQuery`` to render a template from.
