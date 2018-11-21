@@ -51,6 +51,8 @@ python
 
     Under ``examples/test.py`` you'll find a python script, which provides you a template to test the code outside of the scope of the operator.
 
+    Other modules available are requests_ (as ``requests``), json_  (as ``json``) and kubernetes_ as ``k8s``.
+
 KosTemplate
 ^^^^^^^^^^^^^^^^^^
 
@@ -87,3 +89,6 @@ template
 .. _openstack-seeder: https://github.com/sapcc/kubernetes-operators/tree/master/openstack-seeder
 .. _openstacksdk: https://github.com/openstack/openstacksdk
 .. _jinja2_options: http://jinja.pocoo.org/docs/2.10/api/#jinja2.Environment
+.. _requests: http://docs.python-requests.org/en/master/
+.. _json: https://docs.python.org/2/library/json.html
+.. _kubernetes: https://github.com/kubernetes-client/python
