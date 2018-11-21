@@ -207,8 +207,13 @@ class KosQuery(CustomResourceDefinitionBase):
 
     def _process_crd_item(self, item):
         super(KosQuery, self)._process_crd_item(item)
-        self.code = item['python']
-        self.do_execute = item['metadata'].get('execute', False)
+        try:
+            self.code = compile(item['python'], item['metadata']['name'], 'exec')
+        except SyntaxError as e:
+            self.code = None
+            LOG.warning("Namespace: %s, Error: %s", item['metadata']['namespace'], e)
+
+        self.do_execute = item['metadata'].get('execute', False) and self.code
         self.user, project = item['context'].split('@', 1)
         self.domain, self.project = project.split('/', 1)
 
