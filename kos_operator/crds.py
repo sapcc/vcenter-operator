@@ -254,7 +254,8 @@ class KosQuery(CustomResourceDefinitionBase):
         global_vars = {
             'json': json,
             'os': self.connection,
-            'requests': requests
+            'requests': requests,
+            'k8s': client,
         }
         six.exec_(self.code, global_vars, variables)
         return variables
