@@ -207,11 +207,12 @@ class KosQuery(CustomResourceDefinitionBase):
 
     def _process_crd_item(self, item):
         super(KosQuery, self)._process_crd_item(item)
+        self.name = (item['metadata']['namespace'], item['metadata']['name'])
         try:
-            self.code = compile(item['python'], item['metadata']['name'], 'exec')
+            self.code = compile(item['python'], self.name[-1], 'exec')
         except SyntaxError as e:
             self.code = None
-            LOG.warning("Namespace: %s, Error: %s", item['metadata']['namespace'], e)
+            LOG.warning("Namespace: %s, Error: %s", self.name[0], e)
 
         self.do_execute = item['metadata'].get('execute', False) and self.code
         self.user, project = item['context'].split('@', 1)
@@ -256,6 +257,7 @@ class KosQuery(CustomResourceDefinitionBase):
             'os': self.connection,
             'requests': requests,
             'k8s': client,
+            'LOG': logging.getLogger('.'.join([__name__, 'kos_query', self.name[0], self.name[1]]))
         }
         six.exec_(self.code, global_vars, variables)
         return variables

@@ -3,11 +3,13 @@ kind: KosQuery
 metadata:
   name: query-netbox
   namespace: monsoon3
+  execute: True
 requirements:
 - name: nova-seed
   kind: OpenstackSeed
 context: nova@Default/service
 python: |
+  LOG.debug("Hello")
   endpoint_filter={'service_type': 'compute', 'interface': 'public'}
   resp = os.session.get('/os-aggregates', endpoint_filter=endpoint_filter)
   aggregates = json.loads(resp.text) or {}

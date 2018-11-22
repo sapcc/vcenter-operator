@@ -10,7 +10,7 @@ from kubernetes import config as k8s_config
 
 from .configurator import Configurator
 
-log = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 def _build_arg_parser():
@@ -25,7 +25,7 @@ def main():
 
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)-15s %(process)d %(levelname)s %(message)s')
+        format='%(asctime)-15s %(process)d %(name)s [%(levelname)s] %(message)s')
     logging.getLogger('kubernetes').setLevel(logging.WARNING)
     logging.getLogger('kos_operator').setLevel(logging.DEBUG)
 
