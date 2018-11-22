@@ -252,16 +252,18 @@ class KosQuery(CustomResourceDefinitionBase):
             LOG.warning("Failed to get connection to %s", url)
             _get_connection.cache_clear()
 
-        global_vars = {
+        variables.update({
             'json': json,
             'os': self.connection,
             'requests': requests,
             'k8s': client,
             'LOG': logging.getLogger('.'.join([__name__, 'kos_query', self.name[0], self.name[1]]))
-        }
-        six.exec_(self.code, global_vars, variables)
-        return variables
-        
+        })
+        local_vars = {}
+        six.exec_(self.code, variables, local_vars)
+        variables.pop('__builtins__')
+        local_vars.update(variables)
+        return local_vars
 
 class KosTemplate(TemplateBase):
     API_GROUP = 'kos-operator.stable.sap.cc'
