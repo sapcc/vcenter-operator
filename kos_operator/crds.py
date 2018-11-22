@@ -180,6 +180,14 @@ class KosQuery(CustomResourceDefinitionBase):
     _crd = None
     _resource_version = 0
 
+    def __init__(self):
+        super(KosQuery, self).__init__()
+        self.name = None
+        self.user = None
+        self.domain = None
+        self.project = None
+        self.code = None
+
     @classmethod
     def _custom_resource_definition(cls):
         singular = 'kos-query'
@@ -215,10 +223,15 @@ class KosQuery(CustomResourceDefinitionBase):
             LOG.warning("Namespace: %s, Error: %s", self.name[0], e)
 
         self.do_execute = item['metadata'].get('execute', False) and self.code
-        self.user, project = item['context'].split('@', 1)
-        self.domain, self.project = project.split('/', 1)
+        context = item.get('context', None)
+        if context:
+            self.user, project = item['context'].split('@', 1)
+            self.domain, self.project = project.split('/', 1)
 
     def _get_user_password(self, variables):
+        if not self.user or not self.domain:
+            return
+
         for k in six.itervalues(variables.get('seeds', {})):
             if isinstance(k, dict) and 'domains' in k:
                 domains = k['domains']
@@ -236,21 +249,21 @@ class KosQuery(CustomResourceDefinitionBase):
     def execute(self, state, variables):
         password = self._get_user_password(variables)
         if not password:
-            return variables
-        
-        _, dns_domain = variables['domain'].split('.', 1)
-        url = 'https://identity-3.' + dns_domain
-        self.connection = _get_connection(
-            url,
-            self.project,
-            self.domain,
-            self.user,
-            password
-        )
+            self.connection = None
+        else:
+            _, dns_domain = variables['domain'].split('.', 1)
+            url = 'https://identity-3.' + dns_domain
+            self.connection = _get_connection(
+                url,
+                self.project,
+                self.domain,
+                self.user,
+                password
+            )
 
-        if not self.connection:
-            LOG.warning("Failed to get connection to %s", url)
-            _get_connection.cache_clear()
+            if not self.connection:
+                LOG.warning("Failed to get connection to %s", url)
+                _get_connection.cache_clear()
 
         variables.update({
             'json': json,
