@@ -273,7 +273,11 @@ class KosQuery(CustomResourceDefinitionBase):
             'LOG': logging.getLogger('.'.join([__name__, 'kos_query', self.name[0], self.name[1]]))
         })
         local_vars = {}
-        six.exec_(self.code, variables, local_vars)
+        try:
+            six.exec_(self.code, variables, local_vars)
+        except Exception as e:
+            LOG.error(e)
+
         variables.pop('__builtins__')
         local_vars.update(variables)
         return local_vars
