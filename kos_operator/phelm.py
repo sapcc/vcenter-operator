@@ -178,7 +178,11 @@ class DeploymentState(object):
             except client.rest.ApiException as e:
                 LOG.exception("Could not apply change")
 
+        # The apply above does not delete objects, we have to do that now
         for (api_version, kind, name), action in six.iteritems(self.actions):
+            if action != 'delete':
+                continue
+
             api = self.get_api(api_version)
             underscored = _under_score(kind)
             if self.dry_run:
