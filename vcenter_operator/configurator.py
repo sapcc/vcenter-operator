@@ -31,7 +31,8 @@ def filter_spec_context(service_instance):
                                  path_set=['name', 'parent',
                                            'datastore', 'network'])
     finally:
-        view_ref.DestroyView()
+        if view_ref:
+            view_ref.DestroyView()
 
 
 class Configurator(object):
