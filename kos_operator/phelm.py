@@ -49,14 +49,19 @@ class DeploymentState(object):
     def add(self, result):
         stream = six.StringIO(result)
         for item in yaml.safe_load_all(stream):
-            id = (item['apiVersion'], item['kind'], item['metadata']['name'])
-            if id in self.items:
-                LOG.warning("Duplicate item #{}".format(id))
-            api = [p.capitalize() for p in id[0].split('/', 1)]
-            klass = getattr(client, "".join(api + [id[1]]))
+            id_ = (item['apiVersion'], item['kind'], item['metadata']['name'])
+            if id_ in self.items:
+                LOG.warning("Duplicate item #{}".format(id_))
+            api = [p.capitalize() for p in id_[0].split('/', 1)]
+            LOG.debug(api)
+            try:
+                klass = getattr(client, "".join(api + [id_[1]]))
+            except AttributeError:
+                LOG.debug(api[1:])
+                klass = getattr(client, "".join(api[1:] + [id_[1]]))
             try:
                 ser = api_client._ApiClient__deserialize_model(item, klass)
-                self.items[id] = serialize(ser)
+                self.items[id_] = serialize(ser)
             except AttributeError:
                 LOG.error("Failed to deserialize model {} {}".format(
                     klass, item
