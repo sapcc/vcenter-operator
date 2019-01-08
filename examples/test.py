@@ -14,7 +14,7 @@ logging.getLogger('kubernetes').setLevel(logging.WARNING)
 logging.getLogger('kos_operator').setLevel(logging.DEBUG)
 logging.getLogger('__main__').setLevel(logging.DEBUG)
 
-# The pyton sdk only looks for KUBECONFIG=/Users/d063079/.kube/config
+# The pyton sdk only looks for KUBECONFIG=~/.kube/config
 # You can change the environment variable to point it to another file
 k8s_config.load_kube_config()
 _, context = k8s_config.list_kube_config_contexts()
@@ -29,3 +29,5 @@ os = connection.Connection(auth_url=getenv("OS_AUTH_URL"),
                            username=getenv("OS_USERNAME"),
                            user_domain_name=getenv("OS_USER_DOMAIN_NAME"),
                            password=getenv("OS_PASSWORD"))
+
+######################################################################

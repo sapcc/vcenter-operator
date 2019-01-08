@@ -52,7 +52,6 @@ def main():
     if 'SERVICE_DOMAIN' in os.environ:
         domain = os.environ['SERVICE_DOMAIN']
 
-
     global_options['namespace'] = 'monsoon3'
     global_options['domain'] = domain.strip()
 
