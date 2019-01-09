@@ -53,11 +53,9 @@ class DeploymentState(object):
             if id_ in self.items:
                 LOG.warning("Duplicate item #{}".format(id_))
             api = [p.capitalize() for p in id_[0].split('/', 1)]
-            LOG.debug(api)
             try:
                 klass = getattr(client, "".join(api + [id_[1]]))
             except AttributeError:
-                LOG.debug(api[1:])
                 klass = getattr(client, "".join(api[1:] + [id_[1]]))
             try:
                 ser = api_client._ApiClient__deserialize_model(item, klass)
