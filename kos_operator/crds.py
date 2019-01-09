@@ -274,18 +274,19 @@ class KosQuery(CustomResourceDefinitionBase):
                 LOG.warning("Failed to get connection to %s", url)
                 _get_connection.cache_clear()
 
+        local_logger = logging.getLogger('.'.join([__name__, 'kos_query', self.name[0], self.name[1]]))
         variables.update({
             'json': json,
             'os': self.connection,
             'requests': requests,
             'k8s': client,
-            'LOG': logging.getLogger('.'.join([__name__, 'kos_query', self.name[0], self.name[1]]))
+            'LOG': local_logger
         })
         local_vars = {}
         try:
             six.exec_(self.code, variables, local_vars)
         except Exception as e:
-            LOG.error(e)
+            local_logger.exception('Error executing query')
 
         variables.pop('__builtins__')
         local_vars.update(variables)
