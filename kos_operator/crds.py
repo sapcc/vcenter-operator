@@ -3,6 +3,7 @@ import logging
 import requests
 import json
 import six
+import sys
 
 try:
     from functools32 import lru_cache
@@ -48,12 +49,20 @@ class CustomResourceDefinitionBase(object):
         kind = cls._crd.spec['names']['kind']
         version = cls._crd.spec['version']
         kwargs = {
-            "watch": False
+            'watch': False
         }
         if cls._resource_version:
             kwargs['resource_version'] = cls._resource_version
-        resp = api.list_cluster_custom_object(
-            group, version, plural, **kwargs)
+        try:
+            resp = api.list_cluster_custom_object(
+                group, version, plural, **kwargs)
+        except client.rest.ApiException as e:
+            if e.status != 404:
+                six.reraise(*sys.exc_info())
+
+            LOG.warning("Missing %s.%s/%s", plural, group, version)
+            resp = dict(items=[])
+
         for item in resp['items']:
             metadata = item.get('metadata', {})
             namespace = metadata.get('namespace', 'missing namespace')
