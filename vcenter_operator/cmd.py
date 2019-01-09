@@ -26,8 +26,9 @@ def main():
 
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(asctime)-15s %(process)d %(levelname)s %(message)s')
+        format='%(asctime)-15s %(process)d %(levelname)s %(name)s %(message)s')
     logging.getLogger('kubernetes').setLevel(logging.WARNING)
+    logging.getLogger('keystoneauth').setLevel(logging.WARNING)
 
     try:
         k8s_config.load_kube_config()

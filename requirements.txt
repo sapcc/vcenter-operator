@@ -9,3 +9,4 @@ pyvmomi
 jinja2
 jsonpatch
 kubernetes<5
+keystoneauth1

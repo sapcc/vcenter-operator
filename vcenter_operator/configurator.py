@@ -7,6 +7,9 @@ import six
 
 from collections import deque
 from contextlib import contextmanager
+from keystoneauth1.session import Session
+from keystoneauth1.identity.v3 import Password
+from keystoneauth1.exceptions.http import HttpError
 from os.path import commonprefix
 from socket import error as socket_error
 from kubernetes import client
@@ -45,9 +48,11 @@ class Configurator(object):
         self.password = None
         self.mpw = None
         self.domain = domain
+        self.os_session = None
         self.vcenters = dict()
         self.states = deque()
         self.poll_config()
+        self.global_options['cells'] = {}
 
     def __call__(self, added, removed):
         for name in added:
@@ -182,9 +187,41 @@ class Configurator(object):
             self.global_options.update(master_password=password)
             self.password = password
             self.mpw = MasterPassword(self.username, self.password)
+            self.setup_os_session()
+
+    def setup_os_session(self):
+        os_username = self.global_options.get('os_username')
+        if not os_username:
+            return
+        os_username += self.global_options.get('user_suffix', '')
+        mpw = MasterPassword(os_username, self.password)
+        host = "identity-3." + self.domain.split('.', 1)[1]
+        password = mpw.derive('long', host)
+        auth = Password(
+            auth_url='https://' + host + '/v3',
+            username=os_username,
+            user_domain_name=self.global_options.get('os_user_domain_name'),
+            project_name=self.global_options.get('os_project_name'),
+            project_domain_name=self.global_options.get('os_project_domain_name'),
+            password=password,
+        )
+        self.os_session = Session(auth=auth)
+
+    def poll_nova(self):
+        if not self.os_session:
+            return
+
+        try:
+            endpoint_filter={'service_type': 'compute', 'interface': 'public'}
+            resp = self.os_session.get('/os-cells', endpoint_filter=endpoint_filter)
+            for cell in resp.json().get('cellsv2', []):
+                self.global_options['cells'][cell['name']] = cell
+        except HttpError:
+            LOG.error("Failed to get cells")
 
     def poll(self):
         self.poll_config()
+        self.poll_nova()
         self.states.append(DeploymentState(
             namespace=self.global_options['namespace'],
             dry_run=(self.global_options.get('dry_run', 'False') == 'True')))
