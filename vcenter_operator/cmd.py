@@ -8,8 +8,9 @@ from time import sleep
 import six
 from kubernetes import config as k8s_config
 
-from .configurator import Configurator
+# Import discovery before configurator as there is some monkeypatching going on
 from .discovery import DnsDiscovery
+from .configurator import Configurator
 
 log = logging.getLogger(__name__)
 
