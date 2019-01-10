@@ -12,7 +12,7 @@ from kubernetes import config as k8s_config
 from .discovery import DnsDiscovery
 from .configurator import Configurator
 
-log = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 def _build_arg_parser():

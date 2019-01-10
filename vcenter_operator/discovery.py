@@ -3,13 +3,15 @@ from collections import defaultdict
 
 import attr
 import six
-from dns import tsigkeyring
+
+import dns
+from dns import name, tsigkeyring
 from dns.query import xfr
 from dns.rdatatype import SOA, A, AAAA, CNAME, AXFR
 from kubernetes import client
 
-log = logging.getLogger(__name__)
-
+LOG = logging.getLogger(__name__)
+KEYALGORITHM = "hmac-sha256" # If that doesn't work try: dns.tsig.default_algorithm
 
 @attr.s
 class _Callbacks(object):
@@ -60,7 +62,8 @@ class DnsDiscovery(object):
     def remote_soa_serial(self):
         for message in xfr(self.ip, self.domain, port=self.port,
                            use_udp=False, rdtype=SOA, keyname=self.keyname,
-                           keyring=self.keyring):
+                           keyring=self.keyring,
+                           keyalgorithm=KEYALGORITHM):
             for answer in message.answer:
                 if answer.rdtype == SOA:
                     return answer[0].serial
@@ -70,7 +73,7 @@ class DnsDiscovery(object):
         new_serial = self.remote_soa_serial()
 
         if self.serial and self.serial == new_serial:
-            log.debug("No change of SOA serial")
+            LOG.debug("No change of SOA serial")
             return
 
         for item in six.itervalues(self._patterns):
@@ -78,7 +81,8 @@ class DnsDiscovery(object):
 
         for message in xfr(self.ip, self.domain, port=self.port,
                            use_udp=False, rdtype=self.rdtype,
-                           keyname=self.keyname, keyring=self.keyring):
+                           keyname=self.keyname, keyring=self.keyring,
+                           keyalgorithm=KEYALGORITHM):
             for answer in message.answer:
                 if answer.rdtype in [A, AAAA, CNAME] and answer.name:
                     for pattern, item in six.iteritems(self._patterns):
@@ -86,7 +90,7 @@ class DnsDiscovery(object):
                             item.accumulator.add(str(answer.name))
 
         for item in six.itervalues(self._patterns):
-            log.debug("{}: {}".format(new_serial, item.accumulator))
+            LOG.debug("{}: {}".format(new_serial, item.accumulator))
             item.accumulator.difference_update(item.items)
             gone = item.items.difference(item.accumulator)
             for callback in item.callbacks:
