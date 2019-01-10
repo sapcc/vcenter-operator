@@ -15,6 +15,7 @@ from socket import error as socket_error
 from kubernetes import client
 from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
+from jinja2.exceptions import TemplateError
 
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
@@ -155,9 +156,12 @@ class Configurator(object):
                 filter_func=lambda x: (x.startswith(scope)
                                        and x.endswith('.yaml.j2'))
         ):
-            template = env.get_template(template_name)
-            result = template.render(options)
-            self.states[-1].add(result)
+            try:
+                template = env.get_template(template_name)
+                result = template.render(options)
+                self.states[-1].add(result)
+            except TemplateError:
+                LOG.exception("Failed to render %s", template_name)
 
     @property
     def _client(self):
