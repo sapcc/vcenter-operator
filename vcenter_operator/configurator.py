@@ -96,6 +96,7 @@ class Configurator(object):
 
     def _poll(self, host):
         vcenter_options = self.vcenters[host]
+        values = {'clusters': {}, 'datacenters': {}}
         service_instance = vcenter_options['service_instance']
         with filter_spec_context(service_instance) as filter_spec:
             availability_zones = set()
@@ -113,6 +114,7 @@ class Configurator(object):
 
                 parent = cluster['parent']
                 availability_zone = parent.parent.name.lower()
+
                 availability_zones.add(availability_zone)
                 cluster_options = self.global_options.copy()
                 cluster_options.update(vcenter_options)
@@ -141,15 +143,19 @@ class Configurator(object):
                                 host, cluster_name)
                     continue
 
+                values['clusters'][cluster_name] = cluster_options
+
                 self._add_code('vcenter_cluster', cluster_options)
 
             for availability_zone in availability_zones:
                 cluster_options = self.global_options.copy()
                 cluster_options.update(vcenter_options)
                 cluster_options.update(availability_zone=availability_zone)
+                values['datacenters'][availability_zone] = cluster_options
 
             if cluster_options:
                 self._add_code('vcenter_datacenter', cluster_options)
+        return values
 
     def _add_code(self, scope, options):
         for template_name in env.list_templates(
@@ -229,14 +235,18 @@ class Configurator(object):
         self.states.append(DeploymentState(
             namespace=self.global_options['namespace'],
             dry_run=(self.global_options.get('dry_run', 'False') == 'True')))
-        self._add_code('global', self.global_options)
 
+        all_values = {}
         for host in six.iterkeys(self.vcenters):
             try:
-                self._poll(host)
+                all_values[host] = self._poll(host)
             except six.moves.http_client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
                 continue
+
+        all_values.update(self.global_options)
+
+        self._add_code('global', all_values)
 
         if len(self.states) > 1:
             last = self.states.popleft()
