@@ -23,7 +23,7 @@ def _derive_password(ctx, username=None, host=None):
     username = username or ctx['username']
     host = host or ctx['host']
     mpw = MasterPassword(name=username, password=ctx['master_password'])
-    password = mpw.derive('long', host).replace("/", "")
+    password = mpw.derive('long', host)
 
     if host.startswith('vc-'):
         return password.replace("/", "")
