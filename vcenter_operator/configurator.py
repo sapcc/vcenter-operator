@@ -16,6 +16,7 @@ from kubernetes import client
 from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
 from jinja2.exceptions import TemplateError
+from yaml.parser import ParserError
 
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
@@ -143,6 +144,7 @@ class Configurator(object):
                                 host, cluster_name)
                     continue
 
+                cluster_options.pop('service_instance', None)
                 values['clusters'][cluster_name] = cluster_options
 
                 self._add_code('vcenter_cluster', cluster_options)
@@ -151,6 +153,7 @@ class Configurator(object):
                 cluster_options = self.global_options.copy()
                 cluster_options.update(vcenter_options)
                 cluster_options.update(availability_zone=availability_zone)
+                cluster_options.pop('service_instance', None)
                 values['datacenters'][availability_zone] = cluster_options
 
             if cluster_options:
@@ -166,7 +169,7 @@ class Configurator(object):
                 template = env.get_template(template_name)
                 result = template.render(options)
                 self.states[-1].add(result)
-            except TemplateError:
+            except (TemplateError, ParserError):
                 LOG.exception("Failed to render %s", template_name)
 
     @property
@@ -245,8 +248,8 @@ class Configurator(object):
                 continue
 
         all_values.update(self.global_options)
-
-        self._add_code('global', all_values)
+        all_values.pop('service_instance', None)
+        self._add_code('vcenter_global', all_values)
 
         if len(self.states) > 1:
             last = self.states.popleft()

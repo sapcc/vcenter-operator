@@ -2,7 +2,7 @@ import hashlib
 import logging
 
 from jinja2 import BaseLoader, ChoiceLoader, Environment, \
-    contextfilter, TemplateNotFound
+    contextfilter, contextfunction, TemplateNotFound
 from kubernetes import client
 
 from masterpassword import MasterPassword
@@ -42,6 +42,9 @@ def _render(ctx, template_name):
     template = ctx.environment.get_template(template_name)
     return template.render(ctx)
 
+@contextfunction
+def _get_context(ctx):
+    return ctx
 
 _SAVED_DEFAULTS = {}
 
@@ -209,3 +212,5 @@ env.filters['quote'] = _ini_quote
 env.filters['derive_password'] = _derive_password
 env.filters['sha256sum'] = _sha256sum
 env.filters['render'] = _render
+env.globals['context'] = _get_context
+env.globals['callable'] = callable
