@@ -56,6 +56,7 @@ class Configurator(object):
         self.states = deque()
         self.poll_config()
         self.global_options['cells'] = {}
+        self.global_options['domain'] = domain
 
     def __call__(self, added, removed):
         for name in added:
