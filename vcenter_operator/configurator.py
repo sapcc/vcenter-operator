@@ -119,6 +119,7 @@ class Configurator(object):
                 availability_zones.add(availability_zone)
                 cluster_options = self.global_options.copy()
                 cluster_options.update(vcenter_options)
+                cluster_options.pop('service_instance', None)
                 cluster_options.update(name=match.group(1).lower(),
                                        cluster_name=cluster_name,
                                        availability_zone=availability_zone)
@@ -144,16 +145,14 @@ class Configurator(object):
                                 host, cluster_name)
                     continue
 
-                cluster_options.pop('service_instance', None)
                 values['clusters'][cluster_name] = cluster_options
-
                 self._add_code('vcenter_cluster', cluster_options)
 
             for availability_zone in availability_zones:
                 cluster_options = self.global_options.copy()
                 cluster_options.update(vcenter_options)
-                cluster_options.update(availability_zone=availability_zone)
                 cluster_options.pop('service_instance', None)
+                cluster_options.update(availability_zone=availability_zone)
                 values['datacenters'][availability_zone] = cluster_options
 
             if cluster_options:
