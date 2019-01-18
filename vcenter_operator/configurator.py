@@ -255,14 +255,15 @@ class Configurator(object):
             namespace=self.global_options['namespace'],
             dry_run=(self.global_options.get('dry_run', 'False') == 'True')))
 
-        all_values = {}
+        hosts = {}
         for host in six.iterkeys(self.vcenters):
             try:
-                all_values[host] = self._poll(host)
+                hosts[host] = self._poll(host)
             except six.moves.http_client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
                 continue
 
+        all_values = {'hosts': hosts}
         all_values.update(self.global_options)
         all_values.pop('service_instance', None)
         self._add_code('vcenter_global', all_values)
