@@ -27,14 +27,15 @@ LOG = logging.getLogger(__name__)
 
 
 @contextmanager
-def filter_spec_context(service_instance):
+def filter_spec_context(service_instance,
+                        obj_type=vim.ClusterComputeResource,
+                        path_set=['name', 'parent',
+                                  'datastore', 'network']):
     try:
-        obj_type = vim.ClusterComputeResource
         view_ref = get_container_view(service_instance, obj_type=[obj_type])
         yield create_filter_spec(view_ref=view_ref,
                                  obj_type=obj_type,
-                                 path_set=['name', 'parent',
-                                           'datastore', 'network'])
+                                 path_set=path_set)
     finally:
         if view_ref:
             view_ref.DestroyView()
@@ -99,6 +100,17 @@ class Configurator(object):
         vcenter_options = self.vcenters[host]
         values = {'clusters': {}, 'datacenters': {}}
         service_instance = vcenter_options['service_instance']
+
+        nsx_t_clusters = set()
+
+        with filter_spec_context(service_instance,
+                obj_type=vim.HostSystem,
+                path_set=['name', 'parent', 'config.network.opaqueSwitch']) as filter_spec:
+            for h in collect_properties(service_instance, [filter_spec]):
+                if len(h['config.network.opaqueSwitch']) > 0:
+                    LOG.debug("(Possible) NSX-T switch found on %s", h['name'])
+                    nsx_t_clusters.add(h['parent'])
+
         with filter_spec_context(service_instance) as filter_spec:
             availability_zones = set()
             cluster_options = None
@@ -113,6 +125,10 @@ class Configurator(object):
                         "not matching naming scheme", host, cluster_name)
                     continue
 
+                nsx_t_enabled = cluster['obj'] in nsx_t_clusters
+                if nsx_t_enabled:
+                    LOG.debug('NSX-T enabled for %s', cluster_name)
+
                 parent = cluster['parent']
                 availability_zone = parent.parent.name.lower()
 
@@ -122,7 +138,8 @@ class Configurator(object):
                 cluster_options.pop('service_instance', None)
                 cluster_options.update(name=match.group(1).lower(),
                                        cluster_name=cluster_name,
-                                       availability_zone=availability_zone)
+                                       availability_zone=availability_zone,
+                                       nsx_t_enabled=nsx_t_enabled)
 
                 if cluster_options.get('pbm_enabled', 'false') != 'true':
                     datastores = cluster['datastore']
@@ -139,7 +156,7 @@ class Configurator(object):
                         cluster_options['physical'] = match.group(1).lower()
                         break
 
-                if not 'bridge' in cluster_options:
+                if not 'bridge' in cluster_options and not nsx_t_enabled:
                     LOG.warning("%s: Skipping cluster %s, "
                                 "cannot find bridge matching naming scheme",
                                 host, cluster_name)
