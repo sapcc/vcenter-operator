@@ -19,7 +19,7 @@ username
     The username to use to log on the vcenter
 
 password
-    A password used as a seed for the `master-password algorithm <http://masterpasswordapp.com/algorithm.html>` to generate long-form passwords specific for each vcenter discovered.
+    A password used as a seed for the `master-password algorithm <https://masterpassword.app/masterpassword-algorithm.pdf>` to generate long-form passwords specific for each vcenter discovered.
 
 cinder_agent_image
     A docker image for a vcenter cinder volume
