@@ -25,8 +25,15 @@ def main():
     args = _build_arg_parser().parse_args(sys.argv[1:])
     global_options = {'dry_run': str(args.dry_run)}
 
+    log_level = logging.INFO
+    if 'LOG_LEVEL' in os.environ:
+        try:
+            log_level = getattr(logging, os.environ.get('LOG_LEVEL'))
+        except AttributeError:
+            msg = 'The configured log-level "{}" is not available.'
+            raise RuntimeError(msg.format(os.environ.get('LOG_LEVEL')))
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=log_level,
         format='%(asctime)-15s %(process)d %(levelname)s %(name)s %(message)s')
     logging.getLogger('kubernetes').setLevel(logging.WARNING)
     logging.getLogger('keystoneauth').setLevel(logging.WARNING)
