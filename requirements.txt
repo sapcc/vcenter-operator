@@ -2,7 +2,7 @@
 # cryptography >= 1.6
 attrs
 git+https://github.com/sapcc/dnspython.git@master#egg=dnspython
-scrypt
+scrypt==0.8.6
 six
 enum34;python_version=='2.7'
 pyvmomi
