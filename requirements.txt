@@ -4,7 +4,7 @@ openstacksdk>=0.19.0
 python-openstackclient
 python-ironicclient
 attrs
-scrypt
+scrypt==0.8.6
 six
 enum34;python_version=='2.7'
 functools32;python_version=='2.7'
