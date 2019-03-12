@@ -108,6 +108,9 @@ class Configurator(object):
                 obj_type=vim.HostSystem,
                 path_set=['name', 'parent', 'config.network.opaqueSwitch']) as filter_spec:
             for h in collect_properties(service_instance, [filter_spec]):
+                if 'config.network.opaqueSwitch' not in h:
+                    LOG.debug("Broken ESXi host %s detected in cluster %s",
+                              h['name'], h['parent'])
                 if len(h['config.network.opaqueSwitch']) > 0:
                     LOG.debug("(Possible) NSX-T switch found on %s", h['name'])
                     nsx_t_clusters.add(h['parent'])
