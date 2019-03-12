@@ -87,20 +87,36 @@ class DeploymentState(object):
             return new_item
 
         diff = []
+        skipped = []
         for op in jsonpatch.JsonPatch.from_diff(old_item, new_item):
             if op["op"] == "replace" and op["value"] is None \
                     or old_item.get("metadata", {}).get("namespace") is None \
                     and op["path"] == "/metadata/namespace" \
                     and op["value"] == self.namespace \
                     or op["path"] in _IGNORE_PATHS:
+                skipped.append(op)
                 continue
 
             if op["op"] == "remove":
                 old_value = resolve_pointer(old_item, op["path"])
                 if not isinstance(old_value, (dict, list)):
+                    skipped.append(op)
                     continue
 
             diff.append(op)
+
+        for op in skipped:
+            if op["op"] != "remove":
+                continue
+
+            # we cannot ignore removing a "value", because "valueFrom"
+            # cannot co-exist with a "value". check for that in env
+            if op["path"].endswith("/value") and "/env/" in op["path"]:
+                vf_path = re.sub(r'/value$', '/valueFrom', op["path"])
+                fitting_ops = [o for o in diff
+                               if ("add", vf_path) == (o["op"], o["path"])]
+                if 0 < len(fitting_ops) < 2:
+                    diff.append(op)
 
         return diff
 
