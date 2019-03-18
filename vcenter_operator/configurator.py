@@ -111,6 +111,7 @@ class Configurator(object):
                 if 'config.network.opaqueSwitch' not in h:
                     LOG.debug("Broken ESXi host %s detected in cluster %s",
                               h['name'], h['parent'])
+                    continue
                 if len(h['config.network.opaqueSwitch']) > 0:
                     LOG.debug("(Possible) NSX-T switch found on %s", h['name'])
                     nsx_t_clusters.add(h['parent'])
