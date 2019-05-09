@@ -42,7 +42,7 @@ def filter_spec_context(service_instance,
 
 
 class Configurator(object):
-    CLUSTER_MATCH = re.compile('^production(bb[1-9][0-9]*)$')
+    CLUSTER_MATCH = re.compile('^production(bb[0-9]*)$')
     EPH_MATCH = re.compile('^eph.*$')
     BR_MATCH = re.compile('^br-(.*)$')
 
