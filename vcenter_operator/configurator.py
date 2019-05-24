@@ -155,11 +155,16 @@ class Configurator(object):
                     cluster_options.update(datastore_regex="^{}.*".format(eph))
 
                 for network in cluster['network']:
-                    match = self.BR_MATCH.match(network.name)
-                    if match:
-                        cluster_options['bridge'] = match.group(0).lower()
-                        cluster_options['physical'] = match.group(1).lower()
-                        break
+                    try:
+                        match = self.BR_MATCH.match(network.name)
+                        if match:
+                            cluster_options['bridge'] = match.group(0).lower()
+                            cluster_options['physical'] = match.group(1).lower()
+                            break
+                    except vim.ManagedObjectNotFound:
+                        # sometimes a portgroup might be already deleted when
+                        # we try to query its name here
+                        continue
 
                 if not 'bridge' in cluster_options and not nsx_t_enabled:
                     LOG.warning("%s: Skipping cluster %s, "
