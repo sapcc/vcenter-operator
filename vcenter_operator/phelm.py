@@ -89,10 +89,10 @@ class DeploymentState(object):
         diff = []
         skipped = []
         for op in jsonpatch.JsonPatch.from_diff(old_item, new_item):
-            if op["op"] == "replace" and op["value"] is None \
+            if op["op"] == "replace" and op.get("value") is None \
                     or old_item.get("metadata", {}).get("namespace") is None \
                     and op["path"] == "/metadata/namespace" \
-                    and op["value"] == self.namespace \
+                    and op.get("value") == self.namespace \
                     or op["path"] in _IGNORE_PATHS:
                 skipped.append(op)
                 continue
