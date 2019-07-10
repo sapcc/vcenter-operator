@@ -42,7 +42,7 @@ def filter_spec_context(service_instance,
 
 
 class Configurator(object):
-    CLUSTER_MATCH = re.compile('^production(bb[1-9][0-9]*)$')
+    CLUSTER_MATCH = re.compile('^productionbb0*([1-9][0-9]*)$')
     EPH_MATCH = re.compile('^eph.*$')
     BR_MATCH = re.compile('^br-(.*)$')
 
@@ -129,6 +129,7 @@ class Configurator(object):
                         "%s: Ignoring cluster %s "
                         "not matching naming scheme", host, cluster_name)
                     continue
+                bb_name_no_zeroes = 'bb{}'.format(match.group(1))
 
                 nsx_t_enabled = cluster['obj'] in nsx_t_clusters
                 if nsx_t_enabled:
@@ -141,7 +142,7 @@ class Configurator(object):
                 cluster_options = self.global_options.copy()
                 cluster_options.update(vcenter_options)
                 cluster_options.pop('service_instance', None)
-                cluster_options.update(name=match.group(1).lower(),
+                cluster_options.update(name=bb_name_no_zeroes,
                                        cluster_name=cluster_name,
                                        availability_zone=availability_zone,
                                        nsx_t_enabled=nsx_t_enabled)
