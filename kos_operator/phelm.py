@@ -183,7 +183,8 @@ class DeploymentState(object):
 
         # The apply above does not delete objects, we have to do that now
         for (api_version, kind, name), action in six.iteritems(self.actions):
-            if action != 'delete':
+            LOG.debug("Calling {} on:{}/{}".format(action.title(), kind, name))
+            if action != 'delete' or kind == 'Openstack-seed':
                 continue
 
             api = self.get_api(api_version)
