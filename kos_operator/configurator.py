@@ -56,13 +56,15 @@ class Configurator(object):
         results = {}
 
         for name, item in six.iteritems(self._items):
-            LOG.debug("Exec item {} -> {}".format(name, item.do_execute))
             if not item.do_execute:
                 continue
             try:
                 self._execute_item(results, state, name)
             except LookupError as e:
                 LOG.warning("Missing requirements for %s: %s", name, e)
+                #Lets stop the updates. Otherwise crds with the missing req get deleted!
+                #This is the case when updating openstackseeds (Delete -> Create new seed)
+                return
 
         if len(self.states) > 1:
             last = self.states.popleft()
