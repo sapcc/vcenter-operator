@@ -10,4 +10,4 @@ enum34;python_version=='2.7'
 functools32;python_version=='2.7'
 jinja2
 jsonpatch
-kubernetes==4.0.0
+kubernetes==6.0.0
