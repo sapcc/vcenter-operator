@@ -117,6 +117,10 @@ class OpenstackSeed(CustomResourceDefinitionBase):
     API_GROUP = 'openstack.stable.sap.cc'
     _crd = None
     _resource_version = 0
+    
+    def __init__(self):
+        super(OpenstackSeed, self).__init__()
+        self.do_execute = False
 
     @classmethod
     def _create_custom_resource_definitions(cls):

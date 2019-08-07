@@ -56,6 +56,7 @@ class Configurator(object):
         results = {}
 
         for name, item in six.iteritems(self._items):
+            LOG.debug("Exec item {} -> {}".format(name, item.do_execute))
             if not item.do_execute:
                 continue
             try:
