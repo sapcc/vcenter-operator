@@ -85,7 +85,6 @@ template
     setting ``variable_start_string``, ``variable_end_string`` (e.g. to ``{=`` and ``=}``).
     Any option here will be passed for the jinja2 interpreter (see jinja2_options_ for more).
 
-
 .. _openstack-seeder: https://github.com/sapcc/kubernetes-operators/tree/master/openstack-seeder
 .. _openstacksdk: https://github.com/openstack/openstacksdk
 .. _jinja2_options: http://jinja.pocoo.org/docs/2.10/api/#jinja2.Environment
