@@ -8,7 +8,7 @@ from kubernetes import client
 
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
-from .crds import CRDS
+from .crds import CRDS, KosQueryExecError
 
 LOG = logging.getLogger(__name__)
 
@@ -60,10 +60,10 @@ class Configurator(object):
                 continue
             try:
                 self._execute_item(results, state, name)
-            except LookupError as e:
-                LOG.warning("Missing requirements for %s: %s", name, e)
-                #Lets stop the updates. Otherwise crds with the missing req get deleted!
-                #This is the case when updating openstackseeds (Delete -> Create new seed)
+            except (LookupError, KosQueryExecError) as e:
+                LOG.warning("Error executing kos crd: {}. Error: {}".format(name, e))
+                #Lets stop the updates. Otherwise crds with the missing req or execution error get deleted!
+                #e.g.: This is the case when updating openstackseeds (Delete -> Create new seed)
                 return
 
         if len(self.states) > 1:

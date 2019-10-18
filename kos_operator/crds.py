@@ -18,6 +18,9 @@ from .templates import env
 
 LOG = logging.getLogger(__name__)
 
+class KosQueryExecError(Exception):
+    pass
+
 @lru_cache()
 def _get_connection(url, project, domain, user, password):
     return connection.Connection(
@@ -290,7 +293,7 @@ class KosQuery(CustomResourceDefinitionBase):
         try:
             six.exec_(self.code, variables, local_vars)
         except Exception as e:
-            local_logger.exception('Error executing query')
+            raise KosQueryExecError('Error executing query: {}'.format(e))
 
         variables.pop('__builtins__')
         local_vars.update(variables)
