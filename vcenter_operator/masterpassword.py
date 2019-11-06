@@ -106,14 +106,17 @@ class MasterPassword(object):
         except KeyError as e:
             log.error("Unknown key type '{}'".format(type))
             raise e
-        template = templates[six.byte2int(seed[0]) % len(templates)]
+
+        # we need a range of length 1 here, because python3 behaves differently when only
+        # retrieving one char and not a range of chars from a bytestring.
+        template = templates[six.byte2int(seed[0:1]) % len(templates)]
         for i in range(0, len(template)):
             passChars = CHARACTER_CLASSES[template[i]]
-            passChar = passChars[six.byte2int(seed[i + 1]) % len(passChars)]
+            # same here
+            passChar = passChars[six.byte2int(seed[i + 1:i + 2]) % len(passChars)]
             value += passChar
 
         return value
-
 
 def main():
     import sys
