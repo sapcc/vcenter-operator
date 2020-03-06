@@ -5,7 +5,6 @@ import re
 import sys
 from time import sleep
 
-import six
 from kubernetes import config as k8s_config
 
 from .configurator import Configurator
@@ -37,7 +36,7 @@ def main():
         global_options['own_namespace'] = 'kube-system'
         global_options['incluster'] = False
     except IOError:
-        if not 'KUBERNETES_SERVICE_HOST' in os.environ:
+        if 'KUBERNETES_SERVICE_HOST' not in os.environ:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
         global_options['incluster'] = True

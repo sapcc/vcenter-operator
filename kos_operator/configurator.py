@@ -1,12 +1,9 @@
-import json
 import logging
 import six
 
 from collections import deque
-from socket import error as socket_error
 from kubernetes import client
 
-from .masterpassword import MasterPassword
 from .phelm import DeploymentState
 from .crds import CRDS, KosQueryExecError
 
@@ -31,7 +28,7 @@ class Configurator(object):
         self._items = dict()
         for crd in CRDS:
             for name, item in crd.poll():
-                  self._items[name] = item
+                self._items[name] = item
 
     def _execute_item(self, results, state, name):
         if name in results:
@@ -41,9 +38,8 @@ class Configurator(object):
         item = self._items[name]
         for r in item.requirements:
             variables.update(self._execute_item(results, state, r))
-        
-        return item.execute(state, variables)
 
+        return item.execute(state, variables)
 
     def poll(self):
         self.poll_config()
