@@ -125,6 +125,16 @@ class CustomResourceDefinitionLoader(BaseLoader):
         self.poll_crds()
         return sorted(self.mapping)
 
+    def _read_options_v1(self, item):
+        options = {
+            'scope': item['metadata']['scope'],
+            'jinja2_options': item['metadata'].get('jinja2_options', {})
+        }
+        return options
+
+    def _read_options_v2(self, item):
+        return item['options']
+
     def poll_crds(self):
         if not self._crd:
             self._create_custom_resource_definitions()
@@ -149,11 +159,15 @@ class CustomResourceDefinitionLoader(BaseLoader):
                 # self.resource_version = max(
                 #    version,
                 #    self.resource_version)
-                scope = 'vcenter_' + item['metadata']['scope']
                 namespace = item['metadata']['namespace']
-                jinja2_options = item['metadata'].get('jinja2_options', {})
+                if 'options' in item:
+                    options = self._read_options_v2(item)
+                else:
+                    options = self._read_options_v1(item)
+                scope = 'vcenter_' + options['scope']
+                jinja2_options = options.get('jinja2_options', {})
                 template = item['template']
-                path = '/'.join([scope,namespace,name]) + '.yaml.j2'
+                path = '/'.join([scope, namespace, name]) + '.yaml.j2'
                 mapping[path] = (version, template, jinja2_options)
             except KeyError as e:
                 LOG.error("Failed for %s/%s due to missing key %s",
