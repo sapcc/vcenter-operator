@@ -58,44 +58,72 @@ class Configurator(object):
         self.global_options['cells'] = {}
         self.global_options['domain'] = domain
 
-    def __call__(self, added, removed):
-        for name in added:
+        atexit.register(self._disconnect_vcenters)
+
+    def _disconnect_vcenters(self):
+        """Disconnect all vcenters we are connected to"""
+        for host in six.iterkeys(self.vcenters):
+            service_instance = self.vcenters[host]['service_instance']
+            if not service_instance:
+                continue
             try:
-                host = '{}.{}'.format(name, self.domain)
-                if host in self.vcenters:
-                    continue
+                Disconnect(service_instance)
+            except:
+                # best effort disconnection
+                pass
 
-                # Vcenter doesn't accept / in password
-                password = self.mpw.derive('long', host).replace("/", "")
-
-                LOG.info("{}".format(host))
-                if hasattr(ssl, '_create_unverified_context'):
-                    context = ssl._create_unverified_context()
-
-                    service_instance = SmartConnect(host=host,
-                                                    user=self.username,
-                                                    pwd=password,
-                                                    port=443,
-                                                    sslContext=context)
-
-                if service_instance:
-                    atexit.register(Disconnect, service_instance)
-
-                    self.vcenters[host] = {
-                        'service_instance': service_instance,
-                        'username': self.username,
-                        'password': password,
-                        'host': host,
-                        'name': name,
-                    }
-
-            except vim.fault.InvalidLogin as e:
-                LOG.error("%s: %s", host, e.msg)
-            except (Exception, socket_error) as e:
-                LOG.error("%s: %s", host, e)
+    def __call__(self, added, removed):
+        """Add/remove vcenters from our managed list of vcenters"""
+        for name in added:
+            host = '{}.{}'.format(name, self.domain)
+            self._reconnect_vcenter_if_necessary(host)
 
         if removed:
             LOG.info("Gone vcs {}".format(removed))
+
+    def _connect_vcenter(self, host):
+        """Create a connection to host and add it to self.vcenters"""
+        try:
+            # Vcenter doesn't accept / in password
+            password = self.mpw.derive('long', host).replace("/", "")
+
+            LOG.info("Connecting to {}".format(host))
+            service_instance = None
+            if hasattr(ssl, '_create_unverified_context'):
+                context = ssl._create_unverified_context()
+
+                service_instance = SmartConnect(host=host,
+                                                user=self.username,
+                                                pwd=password,
+                                                port=443,
+                                                sslContext=context)
+
+            if service_instance:
+                self.vcenters[host] = {
+                    'service_instance': service_instance,
+                    'username': self.username,
+                    'password': password,
+                    'host': host,
+                    'name': host.split('.', 1)[0]
+                }
+
+        except vim.fault.InvalidLogin as e:
+            LOG.error("%s: %s", host, e.msg)
+        except (Exception, socket_error) as e:
+            LOG.error("%s: %s", host, e)
+
+    def _reconnect_vcenter_if_necessary(self, host):
+        """Test a vcenter connection and reconnect if necessary"""
+        needs_reconnect = host not in self.vcenters
+        if not needs_reconnect:
+            try:
+                self.vcenters[host]['service_instance'].CurrentTime()
+            except Exception as e:
+                LOG.info('Trying to reconnect to %s because of %s', host, e)
+                needs_reconnect = True
+
+        if needs_reconnect:
+            self._connect_vcenter(host)
 
     def _poll(self, host):
         vcenter_options = self.vcenters[host]
@@ -268,6 +296,7 @@ class Configurator(object):
 
         hosts = {}
         for host in six.iterkeys(self.vcenters):
+            self._reconnect_vcenter_if_necessary(host)
             try:
                 hosts[host] = self._poll(host)
             except six.moves.http_client.HTTPException as e:
