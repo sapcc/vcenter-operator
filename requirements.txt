@@ -8,5 +8,5 @@ enum34;python_version=='2.7'
 pyvmomi
 jinja2
 jsonpatch
-kubernetes<12
+kubernetes<5
 keystoneauth1
