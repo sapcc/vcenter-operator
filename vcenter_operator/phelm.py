@@ -52,7 +52,11 @@ class DeploymentState(object):
             id = (item['apiVersion'], item['kind'], item['metadata']['name'])
             if id in self.items:
                 LOG.warning("Duplicate item #{}".format(id))
-            api = [p.capitalize() for p in id[0].split('/', 1)]
+            if id[0] == 'apps/v1':
+                # there's not model ApiV1Deployment, just V1Deployment
+                api = ['V1']
+            else:
+                api = [p.capitalize() for p in id[0].split('/', 1)]
             klass = getattr(client, "".join(api + [id[1]]))
             try:
                 ser = api_client._ApiClient__deserialize_model(item, klass)
