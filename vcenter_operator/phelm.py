@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 import re
@@ -212,8 +213,14 @@ class DeploymentState(object):
                         action.title(), underscored, name))
                     deleter = self.get_method(
                         api, 'delete', 'namespaced', underscored)
-                    deleter(name, self.namespace,
+                    args = [name, self.namespace]
+                    kwargs = {}
+                    if 'body' in inspect.getargspec(deleter)[0]:
+                        args.append(
                             client.V1DeleteOptions(orphan_dependents=False))
+                    else:
+                        kwargs['orphan_dependents'] = False
+                    deleter(*args, **kwargs)
                 except client.rest.ApiException as e:
                     if e.status == 404:
                         pass
