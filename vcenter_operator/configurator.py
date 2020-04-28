@@ -88,6 +88,12 @@ class Configurator(object):
             password = self.mpw.derive('long', host).replace("/", "")
 
             LOG.info("Connecting to {}".format(host))
+            self.vcenters[host] = {
+                'username': self.username,
+                'password': password,
+                'host': host,
+                'name': host.split('.', 1)[0]
+            }
             service_instance = None
             if hasattr(ssl, '_create_unverified_context'):
                 context = ssl._create_unverified_context()
@@ -99,13 +105,7 @@ class Configurator(object):
                                                 sslContext=context)
 
             if service_instance:
-                self.vcenters[host] = {
-                    'service_instance': service_instance,
-                    'username': self.username,
-                    'password': password,
-                    'host': host,
-                    'name': host.split('.', 1)[0]
-                }
+                self.vcenters[host]['service_instance'] = service_instance
 
         except vim.fault.InvalidLogin as e:
             LOG.error("%s: %s", host, e.msg)
@@ -114,7 +114,8 @@ class Configurator(object):
 
     def _reconnect_vcenter_if_necessary(self, host):
         """Test a vcenter connection and reconnect if necessary"""
-        needs_reconnect = host not in self.vcenters
+        needs_reconnect = host not in self.vcenters \
+                            or 'service_instance' not in self.vcenters[host]
         if not needs_reconnect:
             try:
                 self.vcenters[host]['service_instance'].CurrentTime()
