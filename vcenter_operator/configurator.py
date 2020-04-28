@@ -297,7 +297,13 @@ class Configurator(object):
 
         hosts = {}
         for host in six.iterkeys(self.vcenters):
-            self._reconnect_vcenter_if_necessary(host)
+            try:
+                self._reconnect_vcenter_if_necessary(host)
+            except Exception as e:
+                LOG.error('Reconnecting to VC failed. Ignoring VC for this '
+                          'run. (%s)', e)
+                continue
+
             try:
                 hosts[host] = self._poll(host)
             except six.moves.http_client.HTTPException as e:
