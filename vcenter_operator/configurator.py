@@ -4,6 +4,7 @@ import logging
 import re
 import ssl
 import six
+import time
 
 from collections import deque
 from contextlib import contextmanager
@@ -24,6 +25,14 @@ from .templates import env
 from .vcenter_util import *
 
 LOG = logging.getLogger(__name__)
+
+
+class VcConnectionFailed(Exception):
+    pass
+
+
+class VcConnectSkipped(Exception):
+    pass
 
 
 @contextmanager
@@ -63,7 +72,7 @@ class Configurator(object):
     def _disconnect_vcenters(self):
         """Disconnect all vcenters we are connected to"""
         for host in six.iterkeys(self.vcenters):
-            service_instance = self.vcenters[host]['service_instance']
+            service_instance = self.vcenters[host].get('service_instance')
             if not service_instance:
                 continue
             try:
@@ -76,24 +85,52 @@ class Configurator(object):
         """Add/remove vcenters from our managed list of vcenters"""
         for name in added:
             host = '{}.{}'.format(name, self.domain)
-            self._reconnect_vcenter_if_necessary(host)
+            try:
+                self._reconnect_vcenter_if_necessary(host)
+            except VcConnectionFailed:
+                LOG.error('Connecting to %s failed.', host)
+                continue
 
         if removed:
             LOG.info("Gone vcs {}".format(removed))
 
     def _connect_vcenter(self, host):
         """Create a connection to host and add it to self.vcenters"""
-        try:
-            # Vcenter doesn't accept / in password
-            password = self.mpw.derive('long', host).replace("/", "")
+        # Vcenter doesn't accept / in password
+        password = self.mpw.derive('long', host).replace("/", "")
 
-            LOG.info("Connecting to {}".format(host))
+        if host not in self.vcenters:
             self.vcenters[host] = {
                 'username': self.username,
                 'password': password,
                 'host': host,
-                'name': host.split('.', 1)[0]
+                'name': host.split('.', 1)[0],
+                'retries': 0,
+                'last_retry_time': time.time()
             }
+            vc = self.vcenters[host]
+        else:
+            vc = self.vcenters[host]
+            # remove the service_instance for reconnect so we can easily
+            # detect a vcenter we are not connected to
+            if 'service_instance' in vc:
+                del vc['service_instance']
+
+        retries = vc['retries']
+        if retries:
+            # wait a maximum of 10 minutes, a minium of 1
+            wait_time = min(retries, 10) * 60
+            if time.time() < vc['last_retry_time'] + wait_time:
+                LOG.debug('Ignoring reconnection attempt to %s because of '
+                          'incremental backoff (retry %s).', host, retries)
+                raise VcConnectSkipped()
+
+        try:
+            LOG.info("Connecting to {}".format(host))
+
+            vc['retries'] += 1
+            vc['last_retry_time'] = time.time()
+
             service_instance = None
             if hasattr(ssl, '_create_unverified_context'):
                 context = ssl._create_unverified_context()
@@ -105,12 +142,16 @@ class Configurator(object):
                                                 sslContext=context)
 
             if service_instance:
-                self.vcenters[host]['service_instance'] = service_instance
+                vc['service_instance'] = service_instance
 
         except vim.fault.InvalidLogin as e:
             LOG.error("%s: %s", host, e.msg)
         except (Exception, socket_error) as e:
             LOG.error("%s: %s", host, e)
+
+        if vc.get('service_instance') is None:
+            raise VcConnectionFailed()
+        vc['retries'] = 0
 
     def _reconnect_vcenter_if_necessary(self, host):
         """Test a vcenter connection and reconnect if necessary"""
@@ -299,9 +340,12 @@ class Configurator(object):
         for host in six.iterkeys(self.vcenters):
             try:
                 self._reconnect_vcenter_if_necessary(host)
-            except Exception as e:
-                LOG.error('Reconnecting to VC failed. Ignoring VC for this '
-                          'run. (%s)', e)
+            except VcConnectionFailed:
+                LOG.error('Reconnecting to %s failed. Ignoring VC for this '
+                          'run.', host)
+                continue
+            except VcConnectSkipped:
+                LOG.info('Ignoring disconnected %s for this run.', host)
                 continue
 
             try:
