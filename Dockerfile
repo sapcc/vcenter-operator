@@ -12,4 +12,10 @@ ADD . /usr/src/app
 RUN export PBR_VERSION=`grep '^version *= *.*$' setup.cfg | cut -d'=' -f2 | tr -d '[:space:]'` && \
     pip install --no-index --find-links /wheels -e /usr/src/app
 
-ENTRYPOINT [ "kos-operator" ]
+RUN  apt-get update && apt-get install -y curl \
+    && curl -Lo /bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 \
+	&& chmod +x /bin/dumb-init \
+	&& dumb-init -V
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD [ "kos-operator" ]

@@ -32,7 +32,7 @@ def _derive_password(ctx, username=None, host=None):
 
 def _sha256sum(data):
     sha1 = hashlib.new('sha256')
-    sha1.update(data)
+    sha1.update(data.encode('utf-8'))
     return sha1.hexdigest()
 
 

@@ -238,7 +238,13 @@ class KosQuery(CustomResourceDefinitionBase):
             self.code = None
             LOG.warning("Namespace: %s, Error: %s", self.name[0], e)
 
-        self.do_execute = item['metadata'].get('execute', False) and self.code
+        try:
+            anno = item['metadata'].get('annotations')
+            execute = anno.get('execute', False)
+            self.do_execute = True if execute and self.code else False
+        except AttributeError as e:
+            self.do_execute = False
+
         context = item.get('context', None)
         if context:
             self.user, project = item['context'].split('@', 1)
@@ -291,6 +297,7 @@ class KosQuery(CustomResourceDefinitionBase):
         })
         local_vars = {}
         try:
+            LOG.debug('exec code for {}'.format(self.name))
             six.exec_(self.code, variables, local_vars)
         except Exception as e:
             raise KosQueryExecError('Error executing query: {}'.format(e))

@@ -35,7 +35,7 @@ def main():
         domain = 'cc.{}.cloud.sap'.format(region)
         global_options['own_namespace'] = 'kube-system'
         global_options['incluster'] = False
-    except IOError:
+    except:
         if 'KUBERNETES_SERVICE_HOST' not in os.environ:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
@@ -58,6 +58,7 @@ def main():
     configurator.poll_config()
 
     while True:
+        LOG.debug('-----> exec poll <-----')
         configurator.poll()
         sleep(10)
 

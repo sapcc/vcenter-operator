@@ -18,7 +18,7 @@ api_client = client.ApiClient()
 def _remove_empty_from_dict(d):
     if type(d) is dict:
         return dict(
-            (k, _remove_empty_from_dict(v)) for k, v in d.iteritems() if
+            (k, _remove_empty_from_dict(v)) for k, v in d.items() if
             v and _remove_empty_from_dict(v))
     elif type(d) is list:
         return [_remove_empty_from_dict(v) for v in d if
@@ -60,9 +60,9 @@ class DeploymentState(object):
             try:
                 ser = api_client._ApiClient__deserialize_model(item, klass)
                 self.items[id_] = serialize(ser)
-            except AttributeError:
-                LOG.error("Failed to deserialize model {} {}".format(
-                    klass, item
+            except AttributeError as e:
+                LOG.error("Failed to deserialize model {} {}. Error {}".format(
+                    klass, item, e
                 ))
 
     def delta(self, other):
