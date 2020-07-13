@@ -245,9 +245,14 @@ class KosQuery(CustomResourceDefinitionBase):
         except AttributeError as e:
             self.do_execute = False
 
-        context = item.get('context', None)
+        try:
+            anno = item['metadata'].get('annotations')
+            context = anno.get('context', None)
+        except AttributeError as e:
+            context = None
+    
         if context:
-            self.user, project = item['context'].split('@', 1)
+            self.user, project = context.split('@', 1)
             self.domain, self.project = project.split('/', 1)
 
     def _get_user_password(self, variables):
