@@ -215,7 +215,8 @@ class Configurator(object):
                 cluster_options.update(name=bb_name_no_zeroes,
                                        cluster_name=cluster_name,
                                        availability_zone=availability_zone,
-                                       nsx_t_enabled=nsx_t_enabled)
+                                       nsx_t_enabled=nsx_t_enabled,
+                                       vcenter_name=vcenter_options['name'])
 
                 if cluster_options.get('pbm_enabled', 'false') != 'true':
                     datastores = cluster['datastore']
