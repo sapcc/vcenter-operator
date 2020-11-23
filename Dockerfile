@@ -1,10 +1,10 @@
-FROM python:slim as wheels
+FROM keppel.eu-de-1.cloud.sap/ccloud-dockerhub-mirror/library/python:slim as wheels
 
 RUN apt-get update && apt-get install -y gcc libssl-dev libssl1.1
 ADD requirements.txt /tmp
 RUN pip wheel -w /wheels -r /tmp/requirements.txt
 
-FROM python:slim
+FROM keppel.eu-de-1.cloud.sap/ccloud-dockerhub-mirror/library/python:slim
 LABEL source_repository="https://github.com/sapcc/vcenter-operator"
 LABEL maintainer="Stefan Hipfel <stefan.hipfel@sap.com>"
 
