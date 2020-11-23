@@ -53,6 +53,7 @@ class DeploymentState(object):
             if id_ in self.items:
                 LOG.warning("Duplicate item #{}".format(id_))
             api = [p.capitalize() for p in id_[0].split('/', 1)]
+            api[0] = api[0].replace(".k8s.io", "")
             try:
                 klass = getattr(client, "".join(api + [id_[1]]))
             except AttributeError:
@@ -145,6 +146,10 @@ class DeploymentState(object):
 
         if len(api) == 1:
             api.insert(0, 'Core')
+
+        api[0] = api[0].replace(".k8s.io", "")
+        LOG.debug("calling k8s api: {}{}Api".format(
+            api[0], api[1]))
 
         return getattr(client, '{}{}Api'.format(api[0], api[1]), None)()
 

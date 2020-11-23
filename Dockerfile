@@ -5,6 +5,9 @@ ADD requirements.txt /tmp
 RUN pip wheel -w /wheels -r /tmp/requirements.txt
 
 FROM python:slim
+LABEL source_repository="https://github.com/sapcc/vcenter-operator"
+LABEL maintainer="Stefan Hipfel <stefan.hipfel@sap.com>"
+
 COPY --from=wheels /wheels /wheels
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
