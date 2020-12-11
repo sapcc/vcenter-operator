@@ -1,9 +1,9 @@
 import atexit
+import http.client
 import json
 import logging
 import re
 import ssl
-import six
 import time
 
 from collections import deque
@@ -71,7 +71,7 @@ class Configurator(object):
 
     def _disconnect_vcenters(self):
         """Disconnect all vcenters we are connected to"""
-        for host in six.iterkeys(self.vcenters):
+        for host in self.vcenters:
             service_instance = self.vcenters[host].get('service_instance')
             if not service_instance:
                 continue
@@ -339,7 +339,7 @@ class Configurator(object):
             dry_run=(self.global_options.get('dry_run', 'False') == 'True')))
 
         hosts = {}
-        for host in six.iterkeys(self.vcenters):
+        for host in self.vcenters:
             try:
                 self._reconnect_vcenter_if_necessary(host)
             except VcConnectionFailed:
@@ -352,7 +352,7 @@ class Configurator(object):
 
             try:
                 hosts[host] = self._poll(host)
-            except six.moves.http_client.HTTPException as e:
+            except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
                 continue
 

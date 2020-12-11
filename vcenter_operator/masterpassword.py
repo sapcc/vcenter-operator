@@ -3,7 +3,6 @@ import struct
 from hashlib import sha256
 from hmac import HMAC
 
-import six
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -78,7 +77,7 @@ CHARACTER_CLASSES = {
          'bcdfghjklmnpqrstvwxyz0123456789!@#$%^&*()'
 }
 
-DEFAULT_NAMESPACE = six.b('com.lyndir.masterpassword')
+DEFAULT_NAMESPACE = b'com.lyndir.masterpassword'
 
 
 class MasterPassword(object):
@@ -104,13 +103,12 @@ class MasterPassword(object):
             log.error("Unknown key type '{}'".format(type))
             raise e
 
-        # we need a range of length 1 here, because python3 behaves differently when only
-        # retrieving one char and not a range of chars from a bytestring.
-        template = templates[six.byte2int(seed[0:1]) % len(templates)]
+        # in Python3, retrieving a single character from a byte-string returns
+        # an integer
+        template = templates[seed[0] % len(templates)]
         for i in range(0, len(template)):
             passChars = CHARACTER_CLASSES[template[i]]
-            # same here
-            passChar = passChars[six.byte2int(seed[i + 1:i + 2]) % len(passChars)]
+            passChar = passChars[seed[i + 1] % len(passChars)]
             value += passChar
 
         return value

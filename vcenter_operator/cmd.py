@@ -5,7 +5,6 @@ import re
 import sys
 from time import sleep
 
-import six
 from kubernetes import config as k8s_config
 
 # Import discovery before configurator as there is some monkeypatching going on
@@ -64,7 +63,7 @@ def main():
     configurator = Configurator(domain, global_options)
     configurator.poll_config()
     discovery = DnsDiscovery(domain, configurator.global_options)
-    discovery.register(re.compile(six.b(r'\Avc-[a-z]+-\d+\Z')), configurator)
+    discovery.register(re.compile(br'\Avc-[a-z]+-\d+\Z'), configurator)
 
     while True:
         discovery.discover()

@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 
 import attr
-import six
 
 from dns import tsigkeyring
 from dns.query import xfr
@@ -76,7 +75,7 @@ class DnsDiscovery(object):
             LOG.debug("No change of SOA serial")
             return
 
-        for item in six.itervalues(self._patterns):
+        for item in self._patterns.values():
             item.accumulator = set()
 
         for message in xfr(self.ip, self.domain, port=self.port,
@@ -85,11 +84,11 @@ class DnsDiscovery(object):
                            keyalgorithm=KEYALGORITHM):
             for answer in message.answer:
                 if answer.rdtype in [A, AAAA, CNAME] and answer.name:
-                    for pattern, item in six.iteritems(self._patterns):
+                    for pattern, item in self._patterns.items():
                         if pattern.match(answer.name.labels[0]):
                             item.accumulator.add(str(answer.name))
 
-        for item in six.itervalues(self._patterns):
+        for item in self._patterns.values():
             LOG.debug("{}: {}".format(new_serial, item.accumulator))
             item.accumulator.difference_update(item.items)
             gone = item.items.difference(item.accumulator)
