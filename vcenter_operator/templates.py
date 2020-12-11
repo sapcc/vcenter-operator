@@ -5,7 +5,7 @@ from jinja2 import BaseLoader, ChoiceLoader, Environment, \
     contextfilter, contextfunction, TemplateNotFound
 from kubernetes import client
 
-from masterpassword import MasterPassword
+from .masterpassword import MasterPassword
 
 LOG = logging.getLogger(__name__)
 
@@ -32,6 +32,8 @@ def _derive_password(ctx, username=None, host=None):
 
 
 def _sha256sum(data):
+    if isinstance(data, str):
+        data = data.encode('utf-8')
     sha1 = hashlib.new('sha256')
     sha1.update(data)
     return sha1.hexdigest()

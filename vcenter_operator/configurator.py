@@ -22,7 +22,7 @@ from yaml.parser import ParserError
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
 from .templates import env
-import vcenter_util as vcu
+import vcenter_operator.vcenter_util as vcu
 
 LOG = logging.getLogger(__name__)
 
