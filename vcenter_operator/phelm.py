@@ -63,7 +63,7 @@ class DeploymentState(object):
                 ser = api_client._ApiClient__deserialize_model(item, klass)
                 self.items[id] = serialize(ser)
             except AttributeError:
-                LOG.error("Failed to deserialize model {} {}".format(
+                LOG.exception("Failed to deserialize model {} {}".format(
                     klass, item
                 ))
 
