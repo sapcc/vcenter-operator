@@ -1,4 +1,4 @@
-FROM python:slim
+FROM keppel.eu-de-1.cloud.sap/ccloud-dockerhub-mirror/library/python:3.8-slim
 LABEL source_repository="https://github.com/sapcc/vcenter-operator"
 
 RUN mkdir -p /usr/src/app
