@@ -42,9 +42,11 @@ def _render(ctx, template_name):
     template = ctx.environment.get_template(template_name)
     return template.render(ctx)
 
+
 @contextfunction
 def _get_context(ctx):
     return ctx
+
 
 _SAVED_DEFAULTS = {}
 
@@ -94,7 +96,7 @@ class ConfigMapLoader(BaseLoader):
             for key, value in config.data.items():
                 if key.endswith(".j2"):
                     self.mapping[key] = value
-        except client.rest.ApiException as e:
+        except client.rest.ApiException:
             pass
 
 
@@ -210,7 +212,7 @@ class CustomResourceDefinitionLoader(BaseLoader):
             CustomResourceDefinitionLoader._custom_resource_definition()
         try:
             api.create_custom_resource_definition(self._crd)
-        except client.rest.ApiException as e:
+        except client.rest.ApiException:
             pass
 
 

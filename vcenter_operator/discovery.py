@@ -4,14 +4,14 @@ from collections import defaultdict
 import attr
 import six
 
-import dns
-from dns import name, tsigkeyring
+from dns import tsigkeyring
 from dns.query import xfr
 from dns.rdatatype import SOA, A, AAAA, CNAME, AXFR
 from kubernetes import client
 
 LOG = logging.getLogger(__name__)
-KEYALGORITHM = "hmac-sha256" # If that doesn't work try: dns.tsig.default_algorithm
+KEYALGORITHM = "hmac-sha256"  # If that doesn't work try: dns.tsig.default_algorithm
+
 
 @attr.s
 class _Callbacks(object):

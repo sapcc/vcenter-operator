@@ -18,7 +18,6 @@ try:
     from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
     from cryptography.hazmat.backends import default_backend
 
-
     def hash(password, salt):
         kdf = Scrypt(salt=salt,
                      length=SCRYPT_LEN,
@@ -32,7 +31,6 @@ except ImportError:
     try:
         from pyscrypt import shash
 
-
         def hash(password, salt):
             return shash(password=password.encode('utf-8'),
                          salt=salt,
@@ -42,7 +40,6 @@ except ImportError:
                          dkLen=SCRYPT_LEN)
     except ImportError:
         from scrypt import hash as shash
-
 
         def hash(password, salt):
             return shash(password=password.encode('utf-8'),
@@ -93,9 +90,9 @@ class MasterPassword(object):
 
     def seed(self, site, counter=1):
         message = self.namespace + \
-                  struct.pack('!I', len(site)) + \
-                  site.encode('utf-8') + \
-                  struct.pack('!I', counter)
+            struct.pack('!I', len(site)) + \
+            site.encode('utf-8') + \
+            struct.pack('!I', counter)
         return HMAC(self.key, message, sha256).digest()
 
     def derive(self, type, site, counter=1):
@@ -117,6 +114,7 @@ class MasterPassword(object):
             value += passChar
 
         return value
+
 
 def main():
     import sys

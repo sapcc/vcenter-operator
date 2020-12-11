@@ -46,7 +46,7 @@ def main():
         global_options['own_namespace'] = 'kube-system'
         global_options['incluster'] = False
     except (IOError, k8s_config.config_exception.ConfigException):
-        if not 'KUBERNETES_SERVICE_HOST' in os.environ:
+        if 'KUBERNETES_SERVICE_HOST' not in os.environ:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
         global_options['incluster'] = True
@@ -54,9 +54,9 @@ def main():
                   'r') as f:
             global_options['own_namespace'] = f.read()
         with open('/etc/resolv.conf', 'r') as f:
-            for l in f:
-                if re.match('^search\s+', l):
-                    _, domain = l.rsplit(' ', 1)
+            for line in f:
+                if re.match(r'^search\s+', line):
+                    _, domain = line.rsplit(' ', 1)
 
     if 'SERVICE_DOMAIN' in os.environ:
         domain = os.environ['SERVICE_DOMAIN']
@@ -64,7 +64,7 @@ def main():
     configurator = Configurator(domain, global_options)
     configurator.poll_config()
     discovery = DnsDiscovery(domain, configurator.global_options)
-    discovery.register(re.compile(six.b('\Avc-[a-z]+-\d+\Z')), configurator)
+    discovery.register(re.compile(six.b(r'\Avc-[a-z]+-\d+\Z')), configurator)
 
     while True:
         discovery.discover()

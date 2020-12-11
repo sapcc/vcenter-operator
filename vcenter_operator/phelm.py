@@ -196,7 +196,7 @@ class DeploymentState(object):
         for api, current, target in retry_list:
             try:
                 self._apply_delta(api, current, target)
-            except client.rest.ApiException as e:
+            except client.rest.ApiException:
                 LOG.exception("Could not apply change")
 
         for (api_version, kind, name), action in six.iteritems(self.actions):

@@ -22,7 +22,7 @@ from yaml.parser import ParserError
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
 from .templates import env
-from .vcenter_util import *
+import vcenter_util as vcu
 
 LOG = logging.getLogger(__name__)
 
@@ -41,10 +41,10 @@ def filter_spec_context(service_instance,
                         path_set=['name', 'parent',
                                   'datastore', 'network']):
     try:
-        view_ref = get_container_view(service_instance, obj_type=[obj_type])
-        yield create_filter_spec(view_ref=view_ref,
-                                 obj_type=obj_type,
-                                 path_set=path_set)
+        view_ref = vcu.get_container_view(service_instance, obj_type=[obj_type])
+        yield vcu.create_filter_spec(view_ref=view_ref,
+                                     obj_type=obj_type,
+                                     path_set=path_set)
     finally:
         if view_ref:
             view_ref.DestroyView()
@@ -77,7 +77,7 @@ class Configurator(object):
                 continue
             try:
                 Disconnect(service_instance)
-            except:
+            except Exception:
                 # best effort disconnection
                 pass
 
@@ -155,8 +155,9 @@ class Configurator(object):
 
     def _reconnect_vcenter_if_necessary(self, host):
         """Test a vcenter connection and reconnect if necessary"""
-        needs_reconnect = host not in self.vcenters \
-                            or 'service_instance' not in self.vcenters[host]
+        needs_reconnect = \
+            host not in self.vcenters or \
+            'service_instance' not in self.vcenters[host]
         if not needs_reconnect:
             try:
                 self.vcenters[host]['service_instance'].CurrentTime()
@@ -175,9 +176,9 @@ class Configurator(object):
         nsx_t_clusters = set()
 
         with filter_spec_context(service_instance,
-                obj_type=vim.HostSystem,
-                path_set=['name', 'parent', 'config.network.opaqueSwitch']) as filter_spec:
-            for h in collect_properties(service_instance, [filter_spec]):
+                                 obj_type=vim.HostSystem,
+                                 path_set=['name', 'parent', 'config.network.opaqueSwitch']) as filter_spec:
+            for h in vcu.collect_properties(service_instance, [filter_spec]):
                 if 'config.network.opaqueSwitch' not in h:
                     LOG.debug("Broken ESXi host %s detected in cluster %s",
                               h['name'], h['parent'])
@@ -190,7 +191,7 @@ class Configurator(object):
             availability_zones = set()
             cluster_options = None
 
-            for cluster in collect_properties(service_instance, [filter_spec]):
+            for cluster in vcu.collect_properties(service_instance, [filter_spec]):
                 cluster_name = cluster['name']
                 match = self.CLUSTER_MATCH.match(cluster_name)
 
@@ -238,7 +239,7 @@ class Configurator(object):
                         # we try to query its name here
                         continue
 
-                if not 'bridge' in cluster_options and not nsx_t_enabled:
+                if 'bridge' not in cluster_options and not nsx_t_enabled:
                     LOG.warning("%s: Skipping cluster %s, "
                                 "cannot find bridge matching naming scheme",
                                 host, cluster_name)
@@ -323,7 +324,7 @@ class Configurator(object):
             return
 
         try:
-            endpoint_filter={'service_type': 'compute', 'interface': 'public'}
+            endpoint_filter = {'service_type': 'compute', 'interface': 'public'}
             resp = self.os_session.get('/os-cells', endpoint_filter=endpoint_filter)
             for cell in resp.json().get('cellsv2', []):
                 self.global_options['cells'][cell['name']] = cell
