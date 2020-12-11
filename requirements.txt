@@ -10,3 +10,4 @@ jinja2
 jsonpatch
 kubernetes<7
 keystoneauth1
+dumb-init
