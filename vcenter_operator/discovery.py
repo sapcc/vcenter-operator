@@ -59,10 +59,17 @@ class DnsDiscovery(object):
                     return
 
     def remote_soa_serial(self):
-        for message in xfr(self.ip, self.domain, port=self.port,
+        try:
+            messages = xfr(self.ip, self.domain, port=self.port,
                            use_udp=False, rdtype=SOA, keyname=self.keyname,
                            keyring=self.keyring,
-                           keyalgorithm=KEYALGORITHM):
+                           keyalgorithm=KEYALGORITHM)
+        except OSError:
+            LOG.exception('Handled an exception on retrieving the new SOA '
+                          'serial gracefully.')
+            return
+
+        for message in messages:
             for answer in message.answer:
                 if answer.rdtype == SOA:
                     return answer[0].serial
@@ -70,6 +77,10 @@ class DnsDiscovery(object):
 
     def discover(self):
         new_serial = self.remote_soa_serial()
+
+        if not new_serial:
+            LOG.warning("Could not fetch SOA serial")
+            return
 
         if self.serial and self.serial == new_serial:
             LOG.debug("No change of SOA serial")
