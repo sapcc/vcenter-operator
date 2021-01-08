@@ -17,7 +17,7 @@ from kubernetes import client
 from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
 from jinja2.exceptions import TemplateError
-from yaml.parser import ParserError
+from yaml.error import YAMLError
 
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
@@ -268,7 +268,7 @@ class Configurator(object):
                 template = env.get_template(template_name)
                 result = template.render(options)
                 self.states[-1].add(result)
-            except (TemplateError, ParserError):
+            except (TemplateError, YAMLError):
                 LOG.exception("Failed to render %s", template_name)
 
     @property
