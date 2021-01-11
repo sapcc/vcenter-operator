@@ -60,19 +60,19 @@ class DnsDiscovery(object):
 
     def remote_soa_serial(self):
         try:
+            # returns an iterator, that's evaluated lazily
             messages = xfr(self.ip, self.domain, port=self.port,
                            use_udp=False, rdtype=SOA, keyname=self.keyname,
                            keyring=self.keyring,
                            keyalgorithm=KEYALGORITHM)
+            for message in messages:
+                for answer in message.answer:
+                    if answer.rdtype == SOA:
+                        return answer[0].serial
         except OSError:
             LOG.exception('Handled an exception on retrieving the new SOA '
                           'serial gracefully.')
-            return
 
-        for message in messages:
-            for answer in message.answer:
-                if answer.rdtype == SOA:
-                    return answer[0].serial
         return None
 
     def discover(self):
