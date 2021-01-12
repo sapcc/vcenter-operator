@@ -260,10 +260,10 @@ class Configurator(object):
         return values
 
     def _add_code(self, scope, options):
-        for template_name in env.list_templates(
-                filter_func=lambda x: (x.startswith(scope)
-                                       and x.endswith('.yaml.j2'))
-        ):
+        template_names = env.list_templates(
+            filter_func=lambda x: (x.startswith(scope)
+                                   and x.endswith('.yaml.j2')))
+        for template_name in template_names:
             try:
                 template = env.get_template(template_name)
                 result = template.render(options)

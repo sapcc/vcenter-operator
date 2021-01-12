@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import inspect
 import io
 import json
@@ -43,8 +44,8 @@ def serialize(obj):
 class DeploymentState(object):
     namespace = attr.ib()
     dry_run = attr.ib(default=False)
-    items = attr.ib(default=attr.Factory(dict))
-    actions = attr.ib(default=attr.Factory(dict))
+    items = attr.ib(default=attr.Factory(OrderedDict))
+    actions = attr.ib(default=attr.Factory(OrderedDict))
 
     def add(self, result):
         stream = io.StringIO(result)
