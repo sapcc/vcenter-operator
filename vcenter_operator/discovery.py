@@ -69,7 +69,7 @@ class DnsDiscovery(object):
                 for answer in message.answer:
                     if answer.rdtype == SOA:
                         return answer[0].serial
-        except OSError:
+        except (OSError, EOFError):
             LOG.exception('Handled an exception on retrieving the new SOA '
                           'serial gracefully.')
 
