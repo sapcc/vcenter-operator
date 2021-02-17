@@ -10,6 +10,7 @@ from collections import deque
 from contextlib import contextmanager
 from keystoneauth1.session import Session
 from keystoneauth1.identity.v3 import Password
+from keystoneauth1.exceptions.connection import ConnectionError
 from keystoneauth1.exceptions.http import HttpError
 from os.path import commonprefix
 from socket import error as socket_error
@@ -328,8 +329,8 @@ class Configurator(object):
             resp = self.os_session.get('/os-cells', endpoint_filter=endpoint_filter)
             for cell in resp.json().get('cellsv2', []):
                 self.global_options['cells'][cell['name']] = cell
-        except HttpError:
-            LOG.error("Failed to get cells")
+        except (HttpError, ConnectionError) as e:
+            LOG.error("Failed to get cells: {}".format(e))
 
     def poll(self):
         self.poll_config()
