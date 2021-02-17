@@ -48,7 +48,11 @@ def filter_spec_context(service_instance,
                                      path_set=path_set)
     finally:
         if view_ref:
-            view_ref.DestroyView()
+            try:
+                view_ref.DestroyView()
+            except ConnectionRefusedError:
+                # if we cannot re-connect, we cannot destroy ... too bad
+                pass
 
 
 class Configurator(object):
