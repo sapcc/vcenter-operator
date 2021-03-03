@@ -4,10 +4,11 @@ openstacksdk>=0.19.0,<0.49.0
 python-openstackclient
 python-ironicclient
 attrs
-scrypt==0.8.6
+scrypt==0.8.17
 six
 enum34;python_version=='2.7'
 functools32;python_version=='2.7'
 jinja2
 jsonpatch
 kubernetes==12.0.1
+sentry_sdk

@@ -57,7 +57,7 @@ class Configurator(object):
             try:
                 self._execute_item(results, state, name)
             except (LookupError, KosQueryExecError) as e:
-                LOG.warning("Error executing kos crd: {}. Error: {}".format(name, e))
+                LOG.error("Error executing kos crd: {}. Error: {}".format(name, e))
                 #Lets stop the updates. Otherwise crds with the missing req or execution error get deleted!
                 #e.g.: This is the case when updating openstackseeds (Delete -> Create new seed)
                 return

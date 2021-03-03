@@ -4,6 +4,8 @@ import os
 import re
 import sys
 from time import sleep
+import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 from kubernetes import config as k8s_config
 
@@ -21,6 +23,20 @@ def _build_arg_parser():
 def main():
     args = _build_arg_parser().parse_args(sys.argv[1:])
     global_options = {'dry_run': str(args.dry_run)}
+
+    if 'SENTRY_DSN' in os.environ:
+        dsn = os.environ['SENTRY_DSN']
+        if 'verify_ssl' not in dsn:
+            dsn = "%s?verify_ssl=0" % os.environ['SENTRY_DSN']
+
+        sentry_logging = LoggingIntegration(
+            level=logging.INFO,        # Capture info and above as breadcrumbs
+            event_level=logging.ERROR  # Send errors as events
+        )
+        sentry_sdk.init(
+            dsn=dsn,
+            integrations=[sentry_logging]
+        )
 
     logging.basicConfig(
         level=logging.INFO,
