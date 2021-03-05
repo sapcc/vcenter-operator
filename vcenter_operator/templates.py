@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import urllib3.exceptions
 
 from jinja2 import BaseLoader, ChoiceLoader, Environment, \
     contextfilter, contextfunction, TemplateNotFound
@@ -110,7 +111,7 @@ class ConfigMapLoader(BaseLoader):
             for key, value in config.data.items():
                 if key.endswith(".j2"):
                     self.mapping[key] = value
-        except client.rest.ApiException as e:
+        except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
             raise ConfigMapLoadingFailed(e)
 
 
@@ -166,7 +167,7 @@ class CustomResourceDefinitionLoader(BaseLoader):
         try:
             resp = api.list_cluster_custom_object(
                 group, version, plural, **kwargs)
-        except client.rest.ApiException as e:
+        except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
             raise CustomResourceDefinitionLoadingFailed(e)
         # Doesn't work
         # self.resource_version = resp['metadata']['resourceVersion']
