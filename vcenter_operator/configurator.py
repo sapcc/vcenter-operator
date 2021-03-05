@@ -41,6 +41,7 @@ def filter_spec_context(service_instance,
                         obj_type=vim.ClusterComputeResource,
                         path_set=['name', 'parent',
                                   'datastore', 'network']):
+    view_ref = None
     try:
         view_ref = vcu.get_container_view(service_instance, obj_type=[obj_type])
         yield vcu.create_filter_spec(view_ref=view_ref,
