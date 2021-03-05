@@ -3,6 +3,7 @@ import inspect
 import io
 import json
 import logging
+from operator import itemgetter
 import re
 
 import attr
@@ -69,14 +70,21 @@ class DeploymentState(object):
 
     def delta(self, other):
         delta = DeploymentState(namespace=self.namespace)
+        # no ordering necessary for delete
         for k in self.items.keys() - other.items.keys():
             delta.actions[k] = 'delete'
-        for k in self.items.keys() & other.items.keys():
+        # sort by (kind, name), so we update ConfigMaps before Deployments, so
+        # that restarting pods can read the new ConfigMaps already
+        for k in sorted(self.items.keys() & other.items.keys(),
+                        key=itemgetter(1, 2)):
             if self.items[k] != other.items[k]:
                 delta.actions[k] = 'update'
                 delta.items[k] = other.items[k]
             # Nothing to do otherwise
-        for k in other.items.keys() - self.items.keys():
+        # sort by (kind, name), so we update ConfigMaps before Deployments, so
+        # that restarting pods can read the new ConfigMaps already
+        for k in sorted(other.items.keys() - self.items.keys(),
+                        key=itemgetter(1, 2)):
             delta.items[k] = other.items[k]
 
         return delta
