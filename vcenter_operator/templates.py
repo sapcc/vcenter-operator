@@ -10,6 +10,18 @@ from .masterpassword import MasterPassword
 LOG = logging.getLogger(__name__)
 
 
+class TemplateLoadingFailed(Exception):
+    pass
+
+
+class CustomResourceDefinitionLoadingFailed(TemplateLoadingFailed):
+    pass
+
+
+class ConfigMapLoadingFailed(TemplateLoadingFailed):
+    pass
+
+
 def _ini_quote(value):
     return '"{}"'.format(_ini_escape(value).replace('"', '\\"'))
 
@@ -98,8 +110,8 @@ class ConfigMapLoader(BaseLoader):
             for key, value in config.data.items():
                 if key.endswith(".j2"):
                     self.mapping[key] = value
-        except client.rest.ApiException:
-            pass
+        except client.rest.ApiException as e:
+            raise ConfigMapLoadingFailed(e)
 
 
 class CustomResourceDefinitionLoader(BaseLoader):
@@ -151,8 +163,11 @@ class CustomResourceDefinitionLoader(BaseLoader):
         kwargs = {}
         if self.resource_version:
             kwargs['resource_version'] = self.resource_version
-        resp = api.list_cluster_custom_object(
-            group, version, plural, **kwargs)
+        try:
+            resp = api.list_cluster_custom_object(
+                group, version, plural, **kwargs)
+        except client.rest.ApiException as e:
+            raise CustomResourceDefinitionLoadingFailed(e)
         # Doesn't work
         # self.resource_version = resp['metadata']['resourceVersion']
         for item in resp['items']:

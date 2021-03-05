@@ -22,7 +22,7 @@ from yaml.error import YAMLError
 
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
-from .templates import env
+from .templates import env, TemplateLoadingFailed
 import vcenter_operator.vcenter_util as vcu
 
 LOG = logging.getLogger(__name__)
@@ -360,6 +360,9 @@ class Configurator(object):
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
                 continue
+            except TemplateLoadingFailed as e:
+                LOG.warning("Loading of templates failed: %r", e)
+                return
 
         all_values = {'hosts': hosts}
         all_values.update(self.global_options)
