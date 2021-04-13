@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import logging
 import urllib3.exceptions
@@ -61,6 +62,12 @@ def _render(ctx, template_name):
 @contextfunction
 def _get_context(ctx):
     return ctx
+
+
+def _b64enc(data):
+    if isinstance(data, str):
+        data = data.encode('utf-8')
+    return base64.b64encode(data).decode('utf-8')
 
 
 _SAVED_DEFAULTS = {}
@@ -246,5 +253,6 @@ env.filters['quote'] = _ini_quote
 env.filters['derive_password'] = _derive_password
 env.filters['sha256sum'] = _sha256sum
 env.filters['render'] = _render
+env.filters['b64enc'] = _b64enc
 env.globals['context'] = _get_context
 env.globals['callable'] = callable
