@@ -1,16 +1,20 @@
-from collections import OrderedDict
 import inspect
 import io
 import json
 import logging
-from operator import itemgetter
 import re
+from collections import OrderedDict
+from operator import itemgetter
 
 import attr
 import jsonpatch
 import yaml
+from jinja2.exceptions import TemplateError
 from jsonpointer import resolve_pointer
 from kubernetes import client
+from yaml.error import YAMLError
+
+from .templates import TemplateLoadingFailed, env
 
 LOG = logging.getLogger(__name__)
 
@@ -47,6 +51,21 @@ class DeploymentState(object):
     dry_run = attr.ib(default=False)
     items = attr.ib(default=attr.Factory(OrderedDict))
     actions = attr.ib(default=attr.Factory(OrderedDict))
+
+    def render(self, scope, options):
+        try:
+            template_names = env.list_templates(
+                filter_func=lambda x: (x.startswith(scope)
+                                       and x.endswith('.yaml.j2')))
+            for template_name in template_names:
+                try:
+                    template = env.get_template(template_name)
+                    result = template.render(options)
+                    self.add(result)
+                except (TemplateError, YAMLError):
+                    LOG.exception("Failed to render %s", template_name)
+        except TemplateLoadingFailed:
+            LOG.exception("Failed to load templates")
 
     def add(self, result):
         stream = io.StringIO(result)
