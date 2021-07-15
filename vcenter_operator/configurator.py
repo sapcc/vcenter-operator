@@ -252,7 +252,6 @@ class Configurator(object):
                     continue
 
                 values['clusters'][cluster_name] = cluster_options
-                self._add_code('vcenter_cluster', cluster_options)
 
             for availability_zone in availability_zones:
                 cluster_options = self.global_options.copy()
@@ -261,8 +260,6 @@ class Configurator(object):
                 cluster_options.update(availability_zone=availability_zone)
                 values['datacenters'][availability_zone] = cluster_options
 
-            if cluster_options:
-                self._add_code('vcenter_datacenter', cluster_options)
         return values
 
     def _add_code(self, scope, options):
@@ -364,6 +361,13 @@ class Configurator(object):
             except TemplateLoadingFailed as e:
                 LOG.warning("Loading of templates failed: %r", e)
                 return
+
+        for values in hosts.values():
+            for options in values['clusters'].values():
+                self._add_code('vcenter_cluster', options)
+
+            for options in values['datacenters'].values():
+                self._add_code('vcenter_datacenter', options)
 
         all_values = {'hosts': hosts}
         all_values.update(self.global_options)
