@@ -17,12 +17,9 @@ from socket import error as socket_error
 from kubernetes import client
 from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
-from jinja2.exceptions import TemplateError
-from yaml.error import YAMLError
 
 from .masterpassword import MasterPassword
 from .phelm import DeploymentState
-from .templates import env, TemplateLoadingFailed
 import vcenter_operator.vcenter_util as vcu
 
 LOG = logging.getLogger(__name__)
@@ -262,18 +259,6 @@ class Configurator(object):
 
         return values
 
-    def _add_code(self, scope, options):
-        template_names = env.list_templates(
-            filter_func=lambda x: (x.startswith(scope)
-                                   and x.endswith('.yaml.j2')))
-        for template_name in template_names:
-            try:
-                template = env.get_template(template_name)
-                result = template.render(options)
-                self.states[-1].add(result)
-            except (TemplateError, YAMLError):
-                LOG.exception("Failed to render %s", template_name)
-
     @property
     def _client(self):
         return client
@@ -337,11 +322,10 @@ class Configurator(object):
     def poll(self):
         self.poll_config()
         self.poll_nova()
-        self.states.append(DeploymentState(
+        state = DeploymentState(
             namespace=self.global_options['namespace'],
-            dry_run=(self.global_options.get('dry_run', 'False') == 'True')))
+            dry_run=(self.global_options.get('dry_run', 'False') == 'True'))
 
-        hosts = {}
         for host in self.vcenters:
             try:
                 self._reconnect_vcenter_if_necessary(host)
@@ -354,20 +338,18 @@ class Configurator(object):
                 continue
 
             try:
-                hosts[host] = self._poll(host)
+                values = self._poll(host)
+
+                for options in values['clusters'].values():
+                    state.render('vcenter_cluster', options)
+
+                for options in values['datacenters'].values():
+                    state.render('vcenter_datacenter', options)
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
                 continue
-            except TemplateLoadingFailed as e:
-                LOG.warning("Loading of templates failed: %r", e)
-                return
 
-        for values in hosts.values():
-            for options in values['clusters'].values():
-                self._add_code('vcenter_cluster', options)
-
-            for options in values['datacenters'].values():
-                self._add_code('vcenter_datacenter', options)
+        self.states.append(state)
 
         if len(self.states) > 1:
             last = self.states.popleft()
