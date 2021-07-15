@@ -369,11 +369,6 @@ class Configurator(object):
             for options in values['datacenters'].values():
                 self._add_code('vcenter_datacenter', options)
 
-        all_values = {'hosts': hosts}
-        all_values.update(self.global_options)
-        all_values.pop('service_instance', None)
-        self._add_code('vcenter_global', all_values)
-
         if len(self.states) > 1:
             last = self.states.popleft()
             delta = last.delta(self.states[-1])
