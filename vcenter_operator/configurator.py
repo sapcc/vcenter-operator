@@ -6,7 +6,7 @@ import re
 import ssl
 import time
 
-from collections import deque
+from collections import defaultdict, deque
 from contextlib import contextmanager
 from keystoneauth1.session import Session
 from keystoneauth1.identity.v3 import Password
@@ -65,7 +65,7 @@ class Configurator(object):
         self.domain = domain
         self.os_session = None
         self.vcenters = dict()
-        self.states = deque()
+        self.states = defaultdict(deque)
         self.poll_config()
         self.global_options['cells'] = {}
         self.global_options['domain'] = domain
@@ -322,10 +322,6 @@ class Configurator(object):
     def poll(self):
         self.poll_config()
         self.poll_nova()
-        state = DeploymentState(
-            namespace=self.global_options['namespace'],
-            dry_run=(self.global_options.get('dry_run', 'False') == 'True'))
-
         for host in self.vcenters:
             try:
                 self._reconnect_vcenter_if_necessary(host)
@@ -339,21 +335,26 @@ class Configurator(object):
 
             try:
                 values = self._poll(host)
+                state = DeploymentState(
+                    namespace=self.global_options['namespace'],
+                    dry_run=(self.global_options.get('dry_run', 'False')
+                            == 'True'))
 
                 for options in values['clusters'].values():
                     state.render('vcenter_cluster', options)
 
                 for options in values['datacenters'].values():
                     state.render('vcenter_datacenter', options)
+
+                states = self.states[host]
+                states.append(state)
+
+                if len(states) > 1:
+                    last = states.popleft()
+                    delta = last.delta(states[-1])
+                    delta.apply()
+                else:
+                    states[-1].apply()
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
                 continue
-
-        self.states.append(state)
-
-        if len(self.states) > 1:
-            last = self.states.popleft()
-            delta = last.delta(self.states[-1])
-            delta.apply()
-        else:
-            self.states[-1].apply()
