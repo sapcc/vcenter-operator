@@ -6,7 +6,6 @@ import re
 import ssl
 import time
 
-from collections import defaultdict, deque
 from contextlib import contextmanager
 from keystoneauth1.session import Session
 from keystoneauth1.identity.v3 import Password
@@ -65,7 +64,7 @@ class Configurator(object):
         self.domain = domain
         self.os_session = None
         self.vcenters = dict()
-        self.states = defaultdict(deque)
+        self.states = dict()
         self.poll_config()
         self.global_options['cells'] = {}
         self.global_options['domain'] = domain
@@ -172,6 +171,7 @@ class Configurator(object):
             self._connect_vcenter(host)
 
     def _poll(self, host):
+        self._reconnect_vcenter_if_necessary(host)
         vcenter_options = self.vcenters[host]
         values = {'clusters': {}, 'datacenters': {}}
         service_instance = vcenter_options['service_instance']
@@ -324,16 +324,6 @@ class Configurator(object):
         self.poll_nova()
         for host in self.vcenters:
             try:
-                self._reconnect_vcenter_if_necessary(host)
-            except VcConnectionFailed:
-                LOG.error('Reconnecting to %s failed. Ignoring VC for this '
-                          'run.', host)
-                continue
-            except VcConnectSkipped:
-                LOG.info('Ignoring disconnected %s for this run.', host)
-                continue
-
-            try:
                 values = self._poll(host)
                 state = DeploymentState(
                     namespace=self.global_options['namespace'],
@@ -346,15 +336,20 @@ class Configurator(object):
                 for options in values['datacenters'].values():
                     state.render('vcenter_datacenter', options)
 
-                states = self.states[host]
-                states.append(state)
+                last = self.states.get(host)
 
-                if len(states) > 1:
-                    last = states.popleft()
-                    delta = last.delta(states[-1])
+                if last:
+                    delta = last.delta(state)
                     delta.apply()
                 else:
-                    states[-1].apply()
+                    state.apply()
+
+                self.states[host] = state
+            except VcConnectionFailed:
+                LOG.error(
+                    "Reconnecting to %s failed. Ignoring VC for this run.", host
+                )
+            except VcConnectSkipped:
+                LOG.info("Ignoring disconnected %s for this run.", host)
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
-                continue
