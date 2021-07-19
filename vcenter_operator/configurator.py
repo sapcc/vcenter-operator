@@ -338,7 +338,7 @@ class Configurator(object):
                 state = DeploymentState(
                     namespace=self.global_options['namespace'],
                     dry_run=(self.global_options.get('dry_run', 'False')
-                            == 'True'))
+                             == 'True'))
 
                 for options in values['clusters'].values():
                     state.render('vcenter_cluster', options)

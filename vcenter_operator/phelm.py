@@ -1,10 +1,10 @@
+from collections import OrderedDict
 import inspect
 import io
 import json
 import logging
-import re
-from collections import OrderedDict
 from operator import itemgetter
+import re
 
 import attr
 import jsonpatch
@@ -56,7 +56,7 @@ class DeploymentState(object):
         try:
             template_names = env.list_templates(
                 filter_func=lambda x: (x.startswith(scope)
-                                    and x.endswith('.yaml.j2')))
+                                       and x.endswith('.yaml.j2')))
             for template_name in template_names:
                 try:
                     template = env.get_template(template_name)
@@ -64,7 +64,7 @@ class DeploymentState(object):
                     self.add(result)
                 except (TemplateError, YAMLError):
                     LOG.exception("Failed to render %s", template_name)
-        except TemplateLoadingFailed as e:
+        except TemplateLoadingFailed:
             LOG.exception("Failed to load templates")
 
     def add(self, result):
