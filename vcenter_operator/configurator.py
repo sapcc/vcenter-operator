@@ -1,4 +1,5 @@
 import atexit
+from concurrent.futures import ThreadPoolExecutor as Executor
 import http.client
 import json
 import logging
@@ -368,7 +369,11 @@ class Configurator(object):
     def poll(self):
         self.poll_config()
         self.poll_nova()
-        for host in self.vcenters:
-            values = self._values_from_host(host)
-            state = self._state_for_values(values)
-            self._apply_state_for_host(host, state)
+        with Executor() as executor:
+            results = executor.map(
+                lambda host: (host, self._values_from_host(host)),
+                self.vcenters)
+
+            for host, values in results:
+                state = self._state_for_values(values)
+                self._apply_state_for_host(host, state)
