@@ -170,7 +170,7 @@ class Configurator(object):
         if needs_reconnect:
             self._connect_vcenter(host)
 
-    def _poll(self, host):
+    def _poll_host_with_exceptions(self, host):
         self._reconnect_vcenter_if_necessary(host)
         vcenter_options = self.vcenters[host]
         values = {'clusters': {}, 'datacenters': {}}
@@ -319,37 +319,56 @@ class Configurator(object):
         except (HttpError, ConnectionError) as e:
             LOG.error("Failed to get cells: {}".format(e))
 
+    def _values_from_host(self, host):
+        try:
+            return self._poll_host_with_exceptions(host)
+        except VcConnectionFailed:
+            LOG.error(
+                "Reconnecting to %s failed. Ignoring VC for this run.", host
+            )
+        except VcConnectSkipped:
+            LOG.info("Ignoring disconnected %s for this run.", host)
+        except http.client.HTTPException as e:
+            LOG.warning("%s: %r", host, e)
+
+    def _state_for_values(self, values):
+        if not values:
+            return
+
+        state = DeploymentState(
+            namespace=self.global_options['namespace'],
+            dry_run=(self.global_options.get('dry_run', 'False')
+                     == 'True'))
+
+        for options in values['clusters'].values():
+            state.render('vcenter_cluster', options)
+
+        for options in values['datacenters'].values():
+            state.render('vcenter_datacenter', options)
+
+        return state
+
+    def _apply_state_for_host(self, host, state):
+        if not state:
+            return
+
+        last = self.states.get(host)
+
+        try:
+            if last:
+                delta = last.delta(state)
+                delta.apply()
+            else:
+                state.apply()
+
+            self.states[host] = state
+        except http.client.HTTPException as e:
+            LOG.warning("%s: %r", host, e)
+
     def poll(self):
         self.poll_config()
         self.poll_nova()
         for host in self.vcenters:
-            try:
-                values = self._poll(host)
-                state = DeploymentState(
-                    namespace=self.global_options['namespace'],
-                    dry_run=(self.global_options.get('dry_run', 'False')
-                             == 'True'))
-
-                for options in values['clusters'].values():
-                    state.render('vcenter_cluster', options)
-
-                for options in values['datacenters'].values():
-                    state.render('vcenter_datacenter', options)
-
-                last = self.states.get(host)
-
-                if last:
-                    delta = last.delta(state)
-                    delta.apply()
-                else:
-                    state.apply()
-
-                self.states[host] = state
-            except VcConnectionFailed:
-                LOG.error(
-                    "Reconnecting to %s failed. Ignoring VC for this run.", host
-                )
-            except VcConnectSkipped:
-                LOG.info("Ignoring disconnected %s for this run.", host)
-            except http.client.HTTPException as e:
-                LOG.warning("%s: %r", host, e)
+            values = self._values_from_host(host)
+            state = self._state_for_values(values)
+            self._apply_state_for_host(host, state)
