@@ -307,7 +307,7 @@ class Configurator(object):
         )
         self.os_session = Session(auth=auth)
 
-    def poll_nova(self):
+    def _poll_nova(self):
         if not self.os_session:
             return
 
@@ -321,7 +321,13 @@ class Configurator(object):
 
     def poll(self):
         self.poll_config()
-        self.poll_nova()
+        self._poll_nova()
+
+        # If we fail to update the templates, we rather do not continue
+        # to avoid rendering only half of the deployment
+        if not DeploymentState.poll_templates():
+            return
+
         for host in self.vcenters:
             try:
                 values = self._poll(host)

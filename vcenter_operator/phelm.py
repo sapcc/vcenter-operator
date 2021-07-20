@@ -14,7 +14,7 @@ from jsonpointer import resolve_pointer
 from kubernetes import client
 from yaml.error import YAMLError
 
-from .templates import TemplateLoadingFailed, env
+from .templates import env
 
 LOG = logging.getLogger(__name__)
 
@@ -52,20 +52,22 @@ class DeploymentState(object):
     items = attr.ib(default=attr.Factory(OrderedDict))
     actions = attr.ib(default=attr.Factory(OrderedDict))
 
+    @staticmethod
+    def poll_templates():
+        """ Poll all possible template inputs for the deployment states """
+        return env.poll_loaders()
+
     def render(self, scope, options):
-        try:
-            template_names = env.list_templates(
-                filter_func=lambda x: (x.startswith(scope)
-                                       and x.endswith('.yaml.j2')))
-            for template_name in template_names:
-                try:
-                    template = env.get_template(template_name)
-                    result = template.render(options)
-                    self.add(result)
-                except (TemplateError, YAMLError):
-                    LOG.exception("Failed to render %s", template_name)
-        except TemplateLoadingFailed:
-            LOG.exception("Failed to load templates")
+        template_names = env.list_templates(
+            filter_func=lambda x: (x.startswith(scope)
+                                   and x.endswith('.yaml.j2')))
+        for template_name in template_names:
+            try:
+                template = env.get_template(template_name)
+                result = template.render(options)
+                self.add(result)
+            except (TemplateError, YAMLError):
+                LOG.exception("Failed to render %s", template_name)
 
     def add(self, result):
         stream = io.StringIO(result)

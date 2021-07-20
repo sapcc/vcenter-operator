@@ -88,7 +88,12 @@ def store_default(env, k):
     _SAVED_DEFAULTS[k] = getattr(env, k)
 
 
-class ConfigMapLoader(BaseLoader):
+class PollingLoader(BaseLoader):
+    def poll(self):
+        raise NotImplementedError()
+
+
+class ConfigMapLoader(PollingLoader):
     def __init__(self):
         self.mapping = {}
         self.resource_version = None
@@ -101,10 +106,9 @@ class ConfigMapLoader(BaseLoader):
         raise TemplateNotFound(template)
 
     def list_templates(self):
-        self.read_config_map()
         return sorted(self.mapping)
 
-    def read_config_map(self):
+    def poll(self):
         try:
             config = client.CoreV1Api().read_namespaced_config_map(
                 namespace='kube-system',
@@ -122,7 +126,7 @@ class ConfigMapLoader(BaseLoader):
             raise ConfigMapLoadingFailed(e)
 
 
-class CustomResourceDefinitionLoader(BaseLoader):
+class CustomResourceDefinitionLoader(PollingLoader):
     API_GROUP = 'vcenter-operator.stable.sap.cc'
 
     def __init__(self):
@@ -146,7 +150,6 @@ class CustomResourceDefinitionLoader(BaseLoader):
         raise TemplateNotFound(template)
 
     def list_templates(self):
-        self.poll_crds()
         return sorted(self.mapping)
 
     def _read_options_v1(self, item):
@@ -159,7 +162,7 @@ class CustomResourceDefinitionLoader(BaseLoader):
     def _read_options_v2(self, item):
         return item['options']
 
-    def poll_crds(self):
+    def poll(self):
         if not self._crd:
             self._create_custom_resource_definitions()
 
@@ -241,11 +244,26 @@ class CustomResourceDefinitionLoader(BaseLoader):
             pass
 
 
-env = Environment(
-    loader=ChoiceLoader([
-        CustomResourceDefinitionLoader(),
-        ConfigMapLoader(),
-    ]))
+class K8sEnvironment(Environment):
+    def __init__(self):
+        self.loaders = [
+            CustomResourceDefinitionLoader(),
+            ConfigMapLoader(),
+        ]
+        super().__init__(loader=ChoiceLoader(self.loaders))
+
+    def poll_loaders(self):
+        all = True
+        for loader in self.loaders:
+            try:
+                loader.poll()
+            except TemplateLoadingFailed:
+                all = False
+                LOG.exception("Failed to load templates")
+        return all
+
+
+env = K8sEnvironment()
 
 env.filters['ini_escape'] = _ini_escape
 env.filters['ini_quote'] = _ini_quote
