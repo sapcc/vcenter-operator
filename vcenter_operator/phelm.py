@@ -18,11 +18,11 @@ api_client = client.ApiClient()
 
 
 def _remove_empty_from_dict(d):
-    if type(d) is dict:
+    if isinstance(d, dict):
         return dict(
             (k, _remove_empty_from_dict(v)) for k, v in d.items() if
             v and _remove_empty_from_dict(v))
-    elif type(d) is list:
+    elif isinstance(d, list):
         return [_remove_empty_from_dict(v) for v in d if
                 v and _remove_empty_from_dict(v)]
     else:
