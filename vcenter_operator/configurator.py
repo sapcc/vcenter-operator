@@ -274,8 +274,7 @@ class Configurator(object):
     def poll_config(self):
         configmap = client.CoreV1Api().read_namespaced_config_map(
             namespace=self.namespace,
-            name='vcenter-operator',
-            export=True)
+            name='vcenter-operator')
 
         password = configmap.data.pop('password')
         for key, value in configmap.data.items():

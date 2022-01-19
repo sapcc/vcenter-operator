@@ -38,7 +38,7 @@ def _under_score(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
-_IGNORE_PATHS = set(['/status', '/metadata/annotations', '/spec/selector'])
+_IGNORE_PATHS = set(['/status', '/metadata/annotations', '/metadata/managedFields', '/spec/selector', '/spec/ipFamilies', '/spec/clusterIPs'])
 
 
 def serialize(obj):
@@ -208,7 +208,7 @@ class DeploymentState(object):
                 reader = self.get_method(
                     api, 'read', 'namespaced', _under_score(kind))
                 current = serialize(
-                    reader(name, self.namespace, pretty=False, export=True))
+                    reader(name, self.namespace, pretty=False))
             except client.rest.ApiException as e:
                 if e.status == 404:
                     pass
