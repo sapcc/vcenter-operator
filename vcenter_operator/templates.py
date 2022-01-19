@@ -112,8 +112,7 @@ class ConfigMapLoader(PollingLoader):
         try:
             config = client.CoreV1Api().read_namespaced_config_map(
                 namespace='kube-system',
-                name='vcenter-operator',
-                export=False)
+                name='vcenter-operator')
 
             if self.resource_version == config.metadata.resource_version:
                 return
