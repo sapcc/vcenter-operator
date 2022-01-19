@@ -80,7 +80,7 @@ CHARACTER_CLASSES = {
 DEFAULT_NAMESPACE = b'com.lyndir.masterpassword'
 
 
-class MasterPassword(object):
+class MasterPassword:
     def __init__(self, name, password, namespace=None):
         self.namespace = namespace or DEFAULT_NAMESPACE
         salt = self.namespace + struct.pack('!I',
@@ -100,7 +100,7 @@ class MasterPassword(object):
         try:
             templates = Templates[type].value
         except KeyError as e:
-            log.error("Unknown key type '{}'".format(type))
+            log.error(f"Unknown key type '{type}'")
             raise e
 
         # in Python3, retrieving a single character from a byte-string returns

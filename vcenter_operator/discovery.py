@@ -13,13 +13,13 @@ KEYALGORITHM = "hmac-sha256"  # If that doesn't work try: dns.tsig.default_algor
 
 
 @attr.s
-class _Callbacks(object):
+class _Callbacks:
     callbacks = attr.ib(default=attr.Factory(list))
     items = attr.ib(default=attr.Factory(set))
     accumulator = attr.ib(default=attr.Factory(set))
 
 
-class DnsDiscovery(object):
+class DnsDiscovery:
     def __init__(self, domain, global_options):
         self._patterns = defaultdict(_Callbacks)
 
@@ -100,7 +100,7 @@ class DnsDiscovery(object):
                             item.accumulator.add(str(answer.name))
 
         for item in self._patterns.values():
-            LOG.debug("{}: {}".format(new_serial, item.accumulator))
+            LOG.debug(f"{new_serial}: {item.accumulator}")
             item.accumulator.difference_update(item.items)
             gone = item.items.difference(item.accumulator)
             for callback in item.callbacks:
