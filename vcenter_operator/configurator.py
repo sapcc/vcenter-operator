@@ -52,7 +52,7 @@ def filter_spec_context(service_instance,
                 pass
 
 
-class Configurator(object):
+class Configurator:
     CLUSTER_MATCH = re.compile('^productionbb0*([1-9][0-9]*)$')
     EPH_MATCH = re.compile('^eph.*$')
     BR_MATCH = re.compile('^br-(.*)$')
@@ -86,7 +86,7 @@ class Configurator(object):
     def __call__(self, added, removed):
         """Add/remove vcenters from our managed list of vcenters"""
         for name in added:
-            host = '{}.{}'.format(name, self.domain)
+            host = f'{name}.{self.domain}'
             try:
                 self._reconnect_vcenter_if_necessary(host)
             except VcConnectionFailed:
@@ -94,7 +94,7 @@ class Configurator(object):
                 continue
 
         if removed:
-            LOG.info("Gone vcs {}".format(removed))
+            LOG.info(f"Gone vcs {removed}")
 
     def _connect_vcenter(self, host):
         """Create a connection to host and add it to self.vcenters"""
@@ -128,7 +128,7 @@ class Configurator(object):
                 raise VcConnectSkipped()
 
         try:
-            LOG.info("Connecting to {}".format(host))
+            LOG.info(f"Connecting to {host}")
 
             vc['retries'] += 1
             vc['last_retry_time'] = time.time()
@@ -203,7 +203,7 @@ class Configurator(object):
                         "%s: Ignoring cluster %s "
                         "not matching naming scheme", host, cluster_name)
                     continue
-                bb_name_no_zeroes = 'bb{}'.format(match.group(1))
+                bb_name_no_zeroes = f'bb{match.group(1)}'
 
                 nsx_t_enabled = cluster['obj'] in nsx_t_clusters
                 if nsx_t_enabled:
@@ -228,7 +228,7 @@ class Configurator(object):
                                        for datastore in datastores
                                        if self.EPH_MATCH.match(datastore.name)]
                     eph = commonprefix(datastore_names)
-                    cluster_options.update(datastore_regex="^{}.*".format(eph))
+                    cluster_options.update(datastore_regex=f"^{eph}.*")
 
                 for network in cluster['network']:
                     try:
@@ -316,7 +316,7 @@ class Configurator(object):
             for cell in resp.json().get('cellsv2', []):
                 self.global_options['cells'][cell['name']] = cell
         except (HttpError, ConnectionError) as e:
-            LOG.error("Failed to get cells: {}".format(e))
+            LOG.error(f"Failed to get cells: {e}")
 
     def poll(self):
         self.poll_config()

@@ -41,18 +41,17 @@ def main():
         k8s_config.load_kube_config()
         _, context = k8s_config.list_kube_config_contexts()
         region = context['context']['cluster']
-        domain = 'cc.{}.cloud.sap'.format(region)
+        domain = f'cc.{region}.cloud.sap'
         global_options['own_namespace'] = 'kube-system'
         global_options['incluster'] = False
-    except (IOError, k8s_config.config_exception.ConfigException):
+    except (OSError, k8s_config.config_exception.ConfigException):
         if 'KUBERNETES_SERVICE_HOST' not in os.environ:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
         global_options['incluster'] = True
-        with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace',
-                  'r') as f:
+        with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace') as f:
             global_options['own_namespace'] = f.read()
-        with open('/etc/resolv.conf', 'r') as f:
+        with open('/etc/resolv.conf') as f:
             for line in f:
                 if re.match(r'^search\s+', line):
                     _, domain = line.rsplit(' ', 1)

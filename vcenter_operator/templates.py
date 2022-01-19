@@ -209,7 +209,7 @@ class CustomResourceDefinitionLoader(PollingLoader):
     def _custom_resource_definition():
         singular = 'vcenter-template'
         plural = singular + 's'
-        name = '{}.{}'.format(plural, CustomResourceDefinitionLoader.API_GROUP)
+        name = f'{plural}.{CustomResourceDefinitionLoader.API_GROUP}'
         return client.V1beta1CustomResourceDefinition(
             metadata={
                 'name': name,

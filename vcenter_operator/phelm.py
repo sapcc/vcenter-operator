@@ -23,9 +23,9 @@ api_client = client.ApiClient()
 
 def _remove_empty_from_dict(d):
     if isinstance(d, dict):
-        return dict(
-            (k, _remove_empty_from_dict(v)) for k, v in d.items() if
-            v and _remove_empty_from_dict(v))
+        return {
+            k: _remove_empty_from_dict(v) for k, v in d.items() if
+            v and _remove_empty_from_dict(v)}
     elif isinstance(d, list):
         return [_remove_empty_from_dict(v) for v in d if
                 v and _remove_empty_from_dict(v)]
@@ -38,7 +38,7 @@ def _under_score(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
-_IGNORE_PATHS = set(['/status', '/metadata/annotations', '/metadata/managedFields', '/spec/selector', '/spec/ipFamilies', '/spec/clusterIPs'])
+_IGNORE_PATHS = {'/status', '/metadata/annotations', '/metadata/managedFields', '/spec/selector', '/spec/ipFamilies', '/spec/clusterIPs'}
 
 
 def serialize(obj):
@@ -46,7 +46,7 @@ def serialize(obj):
 
 
 @attr.s
-class DeploymentState(object):
+class DeploymentState:
     namespace = attr.ib()
     dry_run = attr.ib(default=False)
     items = attr.ib(default=attr.Factory(OrderedDict))
@@ -74,7 +74,7 @@ class DeploymentState(object):
         for item in yaml.safe_load_all(stream):
             id = (item['apiVersion'], item['kind'], item['metadata']['name'])
             if id in self.items:
-                LOG.warning("Duplicate item #{}".format(id))
+                LOG.warning(f"Duplicate item #{id}")
             if id[0] == 'apps/v1':
                 # there's not model ApiV1Deployment, just V1Deployment
                 api = ['V1']
@@ -112,7 +112,7 @@ class DeploymentState(object):
 
     @staticmethod
     def _unique_items(l):
-        return [dict(t) for t in set([tuple(d.items()) for d in l])]
+        return [dict(t) for t in {tuple(d.items()) for d in l}]
 
     def _diff(self, old_item, new_item):
         if not new_item:
@@ -193,7 +193,7 @@ class DeploymentState(object):
         if len(api) == 1:
             api.insert(0, 'Core')
 
-        return getattr(client, '{}{}Api'.format(api[0], api[1]), None)()
+        return getattr(client, f'{api[0]}{api[1]}Api', None)()
 
     @staticmethod
     def get_method(api, *items):
@@ -235,7 +235,7 @@ class DeploymentState(object):
             api = self.get_api(api_version)
             underscored = _under_score(kind)
             if self.dry_run:
-                LOG.info("{}: {}/{}".format(action.title(), underscored, name))
+                LOG.info(f"{action.title()}: {underscored}/{name}")
             else:
                 try:
                     LOG.debug("{}: {}/{}".format(
