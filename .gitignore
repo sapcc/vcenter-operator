@@ -1,1 +1,3 @@
 venv
+.eggs
+build

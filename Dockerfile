@@ -1,24 +1,22 @@
-FROM keppel.eu-de-1.cloud.sap/ccloud-dockerhub-mirror/library/python:slim as wheels
-
-RUN apt-get update && apt-get install -y gcc libssl-dev libssl1.1
-ADD requirements.txt /tmp
-RUN pip wheel -w /wheels -r /tmp/requirements.txt
-
-FROM keppel.eu-de-1.cloud.sap/ccloud-dockerhub-mirror/library/python:slim
+FROM keppel.eu-de-1.cloud.sap/ccloud/ccloud-shell:20220106092408
 LABEL source_repository="https://github.com/sapcc/vcenter-operator"
 LABEL maintainer="Stefan Hipfel <stefan.hipfel@sap.com>"
 
-COPY --from=wheels /wheels /wheels
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
-ADD . /usr/src/app
-RUN export PBR_VERSION=`grep '^version *= *.*$' setup.cfg | cut -d'=' -f2 | tr -d '[:space:]'` && \
-    pip install --no-index --find-links /wheels -e /usr/src/app
+WORKDIR /app
+COPY kos_operator/ ./kos_operator/
+COPY setup.py .
 
-RUN  apt-get update && apt-get install -y curl \
-    && curl -Lo /bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 \
-	&& chmod +x /bin/dumb-init \
-	&& dumb-init -V
+ARG CUSTOM_PYPI_URL
+RUN apt-get update && \
+    ls && \
+    apt-get dist-upgrade -y && \
+    apt-get install -y gcc libssl-dev libssl1.* git python3 python3-pip python3-setuptools && \
+    pip3 install --upgrade wheel && \
+    pip3 install --upgrade pip && \
+    pip3 install --upgrade setuptools && \
+    pip3 install --no-cache-dir --only-binary :all: --no-compile --extra-index-url ${CUSTOM_PYPI_URL} kubernetes-entrypoint && \
+    pip3 install . && \
+    apt-get purge -y gcc libssl-dev && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD [ "kos-operator" ]
+CMD ["kos-operator"]
