@@ -2,14 +2,9 @@ import abc
 import logging
 import requests
 import json
-import six
 import sys
 
-try:
-    from functools32 import lru_cache
-except ImportError: 
-    from functools import lru_cache
-
+from functools import lru_cache
 from kubernetes import client
 from openstack import connection
 
@@ -32,8 +27,7 @@ def _get_connection(url, project, domain, user, password):
         password=password,
     )
 
-@six.add_metaclass(abc.ABCMeta)
-class CustomResourceDefinitionBase(object):
+class CustomResourceDefinitionBase(metaclass=abc.ABCMeta):
     _crd = None
     _resource_version = 0
 
@@ -61,7 +55,7 @@ class CustomResourceDefinitionBase(object):
                 group, version, plural, **kwargs)
         except client.rest.ApiException as e:
             if e.status != 404:
-                six.reraise(*sys.exc_info())
+                raise
 
             LOG.warning("Missing %s.%s/%s", plural, group, version)
             resp = dict(items=[])
@@ -259,7 +253,7 @@ class KosQuery(CustomResourceDefinitionBase):
         if not self.user or not self.domain:
             return
 
-        for k in six.itervalues(variables.get('seeds', {})):
+        for k in variables.get('seeds', {}).values():
             if isinstance(k, dict) and 'domains' in k:
                 domains = k['domains']
                 for domain in domains:
@@ -303,7 +297,7 @@ class KosQuery(CustomResourceDefinitionBase):
         local_vars = {}
         try:
             LOG.debug('exec code for {}'.format(self.name))
-            six.exec_(self.code, variables, local_vars)
+            exec(self.code, variables, local_vars)
         except Exception as e:
             raise KosQueryExecError('Error executing query: {}'.format(e))
 

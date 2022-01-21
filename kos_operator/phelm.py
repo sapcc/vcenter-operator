@@ -2,10 +2,9 @@ import json
 import logging
 import re
 import sys
-
+import io
 import attr
 import jsonpatch
-import six
 import yaml
 from jsonpointer import resolve_pointer
 from kubernetes import client
@@ -17,9 +16,9 @@ api_client = client.ApiClient()
 
 def _remove_empty_from_dict(d):
     if type(d) is dict:
-        return dict(
-            (k, _remove_empty_from_dict(v)) for k, v in d.items() if
-            v and _remove_empty_from_dict(v))
+        return {
+             k: _remove_empty_from_dict(v) for k, v in d.items() if
+             v and _remove_empty_from_dict(v)}
     elif type(d) is list:
         return [_remove_empty_from_dict(v) for v in d if
                 v and _remove_empty_from_dict(v)]
@@ -32,7 +31,7 @@ def _under_score(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
-_IGNORE_PATHS = set(['/status', '/metadata/annotations', '/spec/selector'])
+_IGNORE_PATHS = {'/status', '/metadata/annotations', '/spec/selector'}
 
 
 def serialize(obj):
@@ -40,14 +39,14 @@ def serialize(obj):
 
 
 @attr.s
-class DeploymentState(object):
+class DeploymentState:
     namespace = attr.ib()
     dry_run = attr.ib(default=False)
     items = attr.ib(default=attr.Factory(dict))
     actions = attr.ib(default=attr.Factory(dict))
 
     def add(self, result):
-        stream = six.StringIO(result)
+        stream = io.StringIO(result)
         for item in yaml.safe_load_all(stream):
             id_ = (item['apiVersion'], item['kind'], item['metadata']['name'])
             if id_ in self.items:
@@ -68,21 +67,21 @@ class DeploymentState(object):
 
     def delta(self, other):
         delta = DeploymentState(namespace=self.namespace)
-        for k in six.viewkeys(self.items) - six.viewkeys(other.items):
+        for k in self.items.keys() - other.items.keys():
             delta.actions[k] = 'delete'
-        for k in six.viewkeys(self.items) & six.viewkeys(other.items):
+        for k in self.items.keys() & other.items.keys():
             if self.items[k] != other.items[k]:
                 delta.actions[k] = 'update'
                 delta.items[k] = other.items[k]
             # Nothing to do otherwise
-        for k in six.viewkeys(other.items) - six.viewkeys(self.items):
+        for k in other.items.keys() - self.items.keys():
             delta.items[k] = other.items[k]
 
         return delta
 
     @staticmethod
     def _unique_items(l):
-        return [dict(t) for t in set([tuple(d.items()) for d in l])]
+        return [dict(t) for t in {tuple(d.items()) for d in l}]
 
     def _diff(self, old_item, new_item):
         if not new_item:
@@ -159,26 +158,26 @@ class DeploymentState(object):
 
     def apply(self):
         retry_list = []
-        for (api_version, kind, name), target in six.iteritems(self.items):
+        for (api_version, kind, name), target in self.items.items():
             api = self.get_api(api_version)
             current = None
             try:
                 reader = self.get_method(
                     api, 'read', 'namespaced', _under_score(kind))
                 current = serialize(
-                    reader(name, self.namespace, pretty=False, export=True))
+                    reader(name, self.namespace, pretty=False))
             except client.rest.ApiException as e:
                 if e.status == 404:
                     pass
                 else:
-                    six.reraise(*sys.exc_info())
+                    raise
             try:
                 self._apply_delta(api, current, target)
             except client.rest.ApiException as e:
                 if e.status == 422:
                     retry_list.append((api, current, target))
                 else:
-                    six.reraise(*sys.exc_info())
+                    raise
 
         for api, current, target in retry_list:
             try:
@@ -187,7 +186,7 @@ class DeploymentState(object):
                 LOG.exception("Could not apply change")
 
         # The apply above does not delete objects, we have to do that now
-        for (api_version, kind, name), action in six.iteritems(self.actions):
+        for (api_version, kind, name), action in self.actions.items():
             LOG.debug("Calling {} on:{}/{}".format(action.title(), kind, name))
             if action != 'delete':
                 continue
@@ -208,4 +207,4 @@ class DeploymentState(object):
                     if e.status == 404:
                         pass
                     else:
-                        six.reraise(*sys.exc_info())
+                        raise

@@ -3,7 +3,6 @@ import struct
 from hashlib import sha256
 from hmac import HMAC
 
-import six
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -18,7 +17,6 @@ try:
     from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
     from cryptography.hazmat.backends import default_backend
 
-
     def hash(password, salt):
         kdf = Scrypt(salt=salt,
                      length=SCRYPT_LEN,
@@ -32,7 +30,6 @@ except ImportError:
     try:
         from pyscrypt import shash
 
-
         def hash(password, salt):
             return shash(password=password.encode('utf-8'),
                          salt=salt,
@@ -42,7 +39,6 @@ except ImportError:
                          dkLen=SCRYPT_LEN)
     except ImportError:
         from scrypt import hash as shash
-
 
         def hash(password, salt):
             return shash(password=password.encode('utf-8'),
@@ -81,10 +77,10 @@ CHARACTER_CLASSES = {
          'bcdfghjklmnpqrstvwxyz0123456789!@#$%^&*()'
 }
 
-DEFAULT_NAMESPACE = six.b('com.lyndir.masterpassword')
+DEFAULT_NAMESPACE = b'com.lyndir.masterpassword'
 
 
-class MasterPassword(object):
+class MasterPassword:
     def __init__(self, name, password, namespace=None):
         self.namespace = namespace or DEFAULT_NAMESPACE
         salt = self.namespace + struct.pack('!I',
@@ -93,9 +89,9 @@ class MasterPassword(object):
 
     def seed(self, site, counter=1):
         message = self.namespace + \
-                  struct.pack('!I', len(site)) + \
-                  site.encode('utf-8') + \
-                  struct.pack('!I', counter)
+            struct.pack('!I', len(site)) + \
+            site.encode('utf-8') + \
+            struct.pack('!I', counter)
         return HMAC(self.key, message, sha256).digest()
 
     def derive(self, type, site, counter=1):
@@ -104,12 +100,15 @@ class MasterPassword(object):
         try:
             templates = Templates[type].value
         except KeyError as e:
-            log.error("Unknown key type '{}'".format(type))
+            log.error(f"Unknown key type '{type}'")
             raise e
-        template = templates[six.byte2int(seed[0]) % len(templates)]
+
+        # in Python3, retrieving a single character from a byte-string returns
+        # an integer
+        template = templates[seed[0] % len(templates)]
         for i in range(0, len(template)):
             passChars = CHARACTER_CLASSES[template[i]]
-            passChar = passChars[six.byte2int(seed[i + 1]) % len(passChars)]
+            passChar = passChars[seed[i + 1] % len(passChars)]
             value += passChar
 
         return value

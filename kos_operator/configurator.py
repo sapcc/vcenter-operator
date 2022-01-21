@@ -1,5 +1,4 @@
 import logging
-import six
 
 from collections import deque
 from kubernetes import client
@@ -10,7 +9,7 @@ from .crds import CRDS, KosQueryExecError
 LOG = logging.getLogger(__name__)
 
 
-class Configurator(object):
+class Configurator:
     def __init__(self, domain, global_options={}):
         self.global_options = global_options.copy()
         self.password = None
@@ -51,7 +50,7 @@ class Configurator(object):
 
         results = {}
 
-        for name, item in six.iteritems(self._items):
+        for name, item in self._items.items():
             if not item.do_execute:
                 continue
             try:
