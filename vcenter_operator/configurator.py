@@ -55,6 +55,7 @@ def filter_spec_context(service_instance,
 class Configurator:
     CLUSTER_MATCH = re.compile('^productionbb0*([1-9][0-9]*)$')
     EPH_MATCH = re.compile('^eph.*$')
+    HAGROUP_MATCH = re.compile('.*_HG(?P<hagroup>[ABab])$')
     BR_MATCH = re.compile('^br-(.*)$')
 
     def __init__(self, domain, global_options={}):
@@ -229,6 +230,15 @@ class Configurator:
                                        if self.EPH_MATCH.match(datastore.name)]
                     eph = commonprefix(datastore_names)
                     cluster_options.update(datastore_regex=f"^{eph}.*")
+                    hagroups = set()
+                    for name in datastore_names:
+                        m = self.HAGROUP_MATCH.match(name)
+                        if not m:
+                            continue
+                        hagroups.add(m.group('hagroup').lower())
+                    if {'a', 'b'}.issubset(hagroups):
+                        LOG.debug('ephemeral datastore hagroups enabled for %s', cluster_name)
+                        cluster_options.update(datastore_hagroup_regex=self.HAGROUP_MATCH.pattern)
 
                 for network in cluster['network']:
                     try:
