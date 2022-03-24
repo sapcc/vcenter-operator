@@ -55,7 +55,7 @@ def filter_spec_context(service_instance,
 class Configurator:
     CLUSTER_MATCH = re.compile('^productionbb0*([1-9][0-9]*)$')
     EPH_MATCH = re.compile('^eph.*$')
-    HAGROUP_MATCH = re.compile('.*_HG(?P<hagroup>[ABab])$')
+    HAGROUP_MATCH = re.compile('.*_hg(?P<hagroup>[ab])$', re.IGNORECASE)
     BR_MATCH = re.compile('^br-(.*)$')
 
     def __init__(self, domain, global_options={}):
