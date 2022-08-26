@@ -1,4 +1,5 @@
 import atexit
+import base64
 import http.client
 import json
 import logging
@@ -30,6 +31,11 @@ class VcConnectionFailed(Exception):
 
 class VcConnectSkipped(Exception):
     pass
+
+
+def b64decode(s):
+    """Decode the given string and return str() instead of bytes"""
+    return base64.b64decode(s).decode('utf-8')
 
 
 @contextmanager
@@ -316,21 +322,46 @@ class Configurator:
         )
         self.os_session = Session(auth=auth)
 
-    def _poll_nova(self):
-        if not self.os_session:
+    def _poll_nova_cells(self):
+        namespace_nova = self.global_options['namespace']
+
+        label_selector = 'system=openstack,component=nova,type=nova-cell'
+        try:
+            secrets = client.CoreV1Api().list_namespaced_secret(
+                namespace=namespace_nova,
+                label_selector=label_selector)
+        except client.ApiException as e:
+            LOG.error(f"Failed to retrieve secrets with labels {label_selector} from ns {namespace_nova}: {e}")
+            return False
+
+        if not secrets.items:
             return
 
-        try:
-            endpoint_filter = {'service_type': 'compute', 'interface': 'public'}
-            resp = self.os_session.get('/os-cells', endpoint_filter=endpoint_filter)
-            for cell in resp.json().get('cellsv2', []):
+        for secret in secrets.items:
+            if secret.type != 'Opaque':
+                LOG.error(f"Unknown secret type {secret.type} for {namespace_nova}/{secret.metadata.name}. "
+                          "Can only work with Opaque.")
+                return False
+
+            try:
+                cell = {key: b64decode(value) for key, value in secret.data.items()}
+            except Exception:
+                LOG.exception(f"Could not decode base64 values of secret {namespace_nova}/{secret.metadata.name}")
+                return False
+
+            try:
                 self.global_options['cells'][cell['name']] = cell
-        except (HttpError, ConnectionError) as e:
-            LOG.error(f"Failed to get cells: {e}")
+            except KeyError as e:
+                LOG.error(f"Malformed secret {namespace_nova}/{secret.metadata.name}: KeyError {e}")
+                return False
+
+        return True
 
     def poll(self):
         self.poll_config()
-        self._poll_nova()
+        if not self._poll_nova_cells():
+            LOG.warning('Polling cells failed. Discontinuing current configuration run.')
+            return
 
         # If we fail to update the templates, we rather do not continue
         # to avoid rendering only half of the deployment
