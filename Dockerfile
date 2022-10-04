@@ -1,4 +1,4 @@
-FROM keppel.eu-de-1.cloud.sap/ccloud/ccloud-shell:20220106092408
+FROM keppel.eu-de-1.cloud.sap/ccloud/ccloud-shell:latest
 LABEL source_repository="https://github.com/sapcc/vcenter-operator"
 LABEL maintainer="Stefan Hipfel <stefan.hipfel@sap.com>"
 
