@@ -76,7 +76,7 @@ def main():
     while True:
         LOG.debug('-----> exec poll <-----')
         configurator.poll()
-        sleep(10)
+        sleep(600)
 
 if __name__ == "__main__":
     main()
