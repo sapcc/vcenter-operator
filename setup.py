@@ -10,7 +10,7 @@ setup(
         'python-ironicclient',
         'attrs',
         'scrypt==0.8.17',
-        'jinja2',
+        'jinja2==3.0.3',
         'jsonpatch',
         'kubernetes==21.7.0,<22',
         'sentry_sdk',
