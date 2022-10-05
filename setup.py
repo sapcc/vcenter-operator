@@ -5,6 +5,7 @@ setup(
     version='1.0.0',
     packages=find_packages(include=['kos_operator', 'kos_operator.*']),
     install_requires=[
+        'pyOpenSSL==22.0.0',
         'openstacksdk>=0.19.0,<0.49.0',
         'python-openstackclient==5.0.0',
         'python-ironicclient',
@@ -13,7 +14,7 @@ setup(
         'jinja2==3.0.3',
         'jsonpatch',
         'kubernetes==21.7.0,<22',
-        'sentry_sdk',
+        'sentry_sdk==1.5.6',
         'dumb-init',
     ],
     url='http://www.github.com/sapcc/vcenter-operator',
