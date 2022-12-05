@@ -4,7 +4,7 @@ import logging
 import urllib3.exceptions
 
 from jinja2 import BaseLoader, ChoiceLoader, Environment, \
-    contextfilter, contextfunction, TemplateNotFound
+    pass_context, TemplateNotFound
 from kubernetes import client
 
 from .masterpassword import MasterPassword
@@ -32,7 +32,7 @@ def _ini_escape(value):
     return str(value).replace('$', '$$')
 
 
-@contextfilter
+@pass_context
 def _derive_password(ctx, username=None, host=None):
     username = username or ctx['username']
     host = host or ctx['host']
@@ -53,13 +53,13 @@ def _sha256sum(data):
     return sha1.hexdigest()
 
 
-@contextfilter
+@pass_context
 def _render(ctx, template_name):
     template = ctx.environment.get_template(template_name)
     return template.render(ctx)
 
 
-@contextfunction
+@pass_context
 def _get_context(ctx):
     return ctx
 
