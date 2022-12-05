@@ -65,13 +65,16 @@ class DeploymentState:
             try:
                 template = env.get_template(template_name)
                 result = template.render(options)
-                self.add(result)
+                owner = env.get_source_owner(template_name)
+                self.add(result, owner)
             except (TemplateError, YAMLError):
                 LOG.exception("Failed to render %s", template_name)
 
-    def add(self, result):
+    def add(self, result, owner):
         stream = io.StringIO(result)
         for item in yaml.safe_load_all(stream):
+            if owner:
+                item["metadata"]["ownerReferences"] = [owner]
             id = (item['apiVersion'], item['kind'], item['metadata']['name'])
             if id in self.items:
                 LOG.warning(f"Duplicate item #{id}")

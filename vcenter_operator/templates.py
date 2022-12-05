@@ -88,9 +88,23 @@ def store_default(env, k):
     _SAVED_DEFAULTS[k] = getattr(env, k)
 
 
+def _owner_from_obj(item):
+    metadata = item["metadata"]
+    return {
+        "apiVersion": item["apiVersion"],
+        "kind": item["kind"],
+        "name": metadata["name"],
+        "blockOwnerDeletion": False,
+        "uid": metadata["uid"],
+    }
+
+
 class PollingLoader(BaseLoader):
     def poll(self):
         raise NotImplementedError()
+
+    def get_source_owner(self, template_name):
+        return None
 
 
 class ConfigMapLoader(PollingLoader):
@@ -135,7 +149,7 @@ class CustomResourceDefinitionLoader(PollingLoader):
 
     def get_source(self, environment, template):
         if template in self.mapping:
-            version, source, jinja2_options = self.mapping[template]
+            version, source, jinja2_options, owner = self.mapping[template]
             restore_defaults(environment)
 
             for k in jinja2_options:
@@ -145,11 +159,18 @@ class CustomResourceDefinitionLoader(PollingLoader):
 
             return source, None, lambda: \
                 template in self.mapping and \
-                (version, source, jinja2_options) == self.mapping.get(template)
+                (version, source, jinja2_options, owner) == self.mapping.get(template)
         raise TemplateNotFound(template)
 
     def list_templates(self):
         return sorted(self.mapping)
+
+    def get_source_owner(self, template_name):
+        if template_name not in self.mapping:
+            return None
+
+        _, _, _, owner = self.mapping[template_name]
+        return owner
 
     def _read_options_v1(self, item):
         options = {
@@ -197,8 +218,9 @@ class CustomResourceDefinitionLoader(PollingLoader):
                 scope = 'vcenter_' + options['scope']
                 jinja2_options = options.get('jinja2_options', {})
                 template = item['template']
+                owner = _owner_from_obj(item)
                 path = '/'.join([scope, namespace, name]) + '.yaml.j2'
-                mapping[path] = (version, template, jinja2_options)
+                mapping[path] = (version, template, jinja2_options, owner)
             except KeyError as e:
                 LOG.error("Failed for %s/%s due to missing key %s",
                           namespace,
@@ -261,6 +283,13 @@ class K8sEnvironment(Environment):
                 all = False
                 LOG.exception("Failed to load templates")
         return all
+
+    def get_source_owner(self, template_name):
+        for loader in self.loaders:
+            owner = loader.get_source_owner(template_name)
+            if owner:
+                return owner
+        return None
 
 
 env = K8sEnvironment()
