@@ -182,13 +182,14 @@ class CustomResourceDefinitionLoader(PollingLoader):
         # self.resource_version = resp['metadata']['resourceVersion']
         for item in resp['items']:
             try:
-                version = item['metadata']['resourceVersion']
-                name = item['metadata']['name']
+                metadata = item['metadata']
+                version = metadata['resourceVersion']
+                name = metadata['name']
                 # This, however, does seem to work
                 # self.resource_version = max(
                 #    version,
                 #    self.resource_version)
-                namespace = item['metadata']['namespace']
+                namespace = metadata['namespace']
                 if 'options' in item:
                     options = self._read_options_v2(item)
                 else:
