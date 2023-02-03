@@ -31,7 +31,7 @@ def _under_score(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
-_IGNORE_PATHS = {'/status', '/metadata/annotations', '/spec/selector'}
+_IGNORE_PATHS = set(['/status', '/metadata/annotations', '/metadata/managedFields', '/spec/selector', '/spec/ipFamilies', '/spec/clusterIPs'])
 
 
 def serialize(obj):
