@@ -30,7 +30,7 @@ def _under_score(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
-_IGNORE_PATHS = set(['/status', '/metadata/annotations', '/metadata/managedFields', '/spec/selector', '/spec/ipFamilies', '/spec/clusterIPs'])
+_IGNORE_PATHS = {'/status', '/metadata/annotations', '/metadata/managedFields', '/spec/selector', '/spec/ipFamilies', '/spec/clusterIPs'}
 
 
 def serialize(obj):
@@ -44,9 +44,11 @@ class DeploymentState:
     items = attr.ib(default=attr.Factory(dict))
     actions = attr.ib(default=attr.Factory(dict))
 
-    def add(self, result):
+    def add(self, result, owner):
         stream = io.StringIO(result)
         for item in yaml.safe_load_all(stream):
+            if owner:
+                item["metadata"]["ownerReferences"] = [owner]
             id_ = (item['apiVersion'], item['kind'], item['metadata']['name'])
             if id_ in self.items:
                 LOG.warning("Duplicate item #{}".format(id_))

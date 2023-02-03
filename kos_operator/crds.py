@@ -176,18 +176,31 @@ class TemplateBase(CustomResourceDefinitionBase):
         scope = item['metadata'].get('scope') or ''
         namespace = item['metadata']['namespace']
         jinja2_options = item['metadata'].get('jinja2_options', {})
+        owner = self._owner_from_obj(item)
 
         template = item['template']
         self.template_name = '/'.join([scope, namespace, name]) + '.yaml.j2'
-        self.mapping[self.template_name] = (version, template, jinja2_options)
+        self.mapping[self.template_name] = (version, template, jinja2_options, owner)
 
     def execute(self, state, variables=None):
         if not self.template_name:
             return
         template = env.get_template(self.template_name)
+        owner = env.get_source_owner(self.template_name)
         result = template.render(variables)
-        state.add(result)
+        state.add(result, owner)
         return variables
+
+    @staticmethod
+    def _owner_from_obj(item):
+        metadata = item["metadata"]
+        return {
+            "apiVersion": item["apiVersion"],
+            "kind": item["kind"],
+            "name": metadata["name"],
+            "blockOwnerDeletion": False,
+            "uid": metadata["uid"],
+        }
 
 
 class KosQuery(CustomResourceDefinitionBase):
