@@ -2,7 +2,6 @@ import abc
 import logging
 import requests
 import json
-import sys
 
 from functools import lru_cache
 from kubernetes import client
@@ -13,8 +12,10 @@ from .templates import env
 
 LOG = logging.getLogger(__name__)
 
+
 class KosQueryExecError(Exception):
     pass
+
 
 @lru_cache()
 def _get_connection(url, project, domain, user, password):
@@ -26,6 +27,7 @@ def _get_connection(url, project, domain, user, password):
         user_domain_name=domain,
         password=password,
     )
+
 
 class CustomResourceDefinitionBase(metaclass=abc.ABCMeta):
     _crd = None
@@ -75,15 +77,15 @@ class CustomResourceDefinitionBase(metaclass=abc.ABCMeta):
                 yield (kind, namespace, name), obj
             except KeyError as e:
                 LOG.error("Failed for %s/%s due to missing key %s",
-                            namespace,
-                            name,
-                            e)
+                          namespace,
+                          name,
+                          e)
             except ValueError as e:
                 LOG.error("Failed for %s/%s due to parsing error %s",
-                            namespace,
-                            name,
-                            e)
-    
+                          namespace,
+                          name,
+                          e)
+
     def execute(self, state, variables):
         return variables
 
@@ -110,18 +112,19 @@ class CustomResourceDefinitionBase(metaclass=abc.ABCMeta):
                 # ValueError is raised by our old api version
                 pass
 
+
 class OpenstackSeed(CustomResourceDefinitionBase):
     API_GROUP = 'openstack.stable.sap.cc'
     _crd = None
     _resource_version = 0
-    
+
     def __init__(self):
         super(OpenstackSeed, self).__init__()
         self.do_execute = False
 
     @classmethod
     def _create_custom_resource_definitions(cls):
-        # Do not create it, expect it to be created the 
+        # Do not create it, expect it to be created the
         # original operator
         cls._crd = \
             cls._custom_resource_definition()
@@ -150,15 +153,16 @@ class OpenstackSeed(CustomResourceDefinitionBase):
                 }
             }
         )
-    
+
     def _process_crd_item(self, item):
         self.item = item
-    
+
     def execute(self, state, variables):
         seeds = variables.get('seeds', {})
         seeds[self.item['metadata']['name']] = self.item['spec']
         variables['seeds'] = seeds
         return variables
+
 
 class TemplateBase(CustomResourceDefinitionBase):
     def __init__(self):
@@ -174,9 +178,9 @@ class TemplateBase(CustomResourceDefinitionBase):
         jinja2_options = item['metadata'].get('jinja2_options', {})
 
         template = item['template']
-        self.template_name = '/'.join([scope,namespace,name]) + '.yaml.j2'
+        self.template_name = '/'.join([scope, namespace, name]) + '.yaml.j2'
         self.mapping[self.template_name] = (version, template, jinja2_options)
-    
+
     def execute(self, state, variables=None):
         if not self.template_name:
             return
@@ -184,6 +188,7 @@ class TemplateBase(CustomResourceDefinitionBase):
         result = template.render(variables)
         state.add(result)
         return variables
+
 
 class KosQuery(CustomResourceDefinitionBase):
     API_GROUP = 'kos-operator.stable.sap.cc'
@@ -236,15 +241,15 @@ class KosQuery(CustomResourceDefinitionBase):
             anno = item['metadata'].get('annotations')
             execute = anno.get('execute', False)
             self.do_execute = True if execute and self.code else False
-        except AttributeError as e:
+        except AttributeError:
             self.do_execute = False
 
         try:
             anno = item['metadata'].get('annotations')
             context = anno.get('context', None)
-        except AttributeError as e:
+        except AttributeError:
             context = None
-    
+
         if context:
             self.user, project = context.split('@', 1)
             self.domain, self.project = project.split('/', 1)
@@ -264,8 +269,9 @@ class KosQuery(CustomResourceDefinitionBase):
                         if user.get('name') == self.user:
                             if user.get('password'):
                                 return user.get('password')
-        
-        LOG.warning("Could not find password for user %s in domain %s", self.user, self.domain)
+
+        LOG.warning("Could not find password for user %s in domain %s",
+                    self.user, self.domain)
 
     def execute(self, state, variables):
         password = self._get_user_password(variables)
@@ -286,7 +292,8 @@ class KosQuery(CustomResourceDefinitionBase):
                 LOG.warning("Failed to get connection to %s", url)
                 _get_connection.cache_clear()
 
-        local_logger = logging.getLogger('.'.join([__name__, 'kos_query', self.name[0], self.name[1]]))
+        local_logger = logging.getLogger(
+            '.'.join([__name__, 'kos_query', self.name[0], self.name[1]]))
         variables.update({
             'json': json,
             'os': self.connection,
@@ -304,6 +311,7 @@ class KosQuery(CustomResourceDefinitionBase):
         variables.pop('__builtins__')
         local_vars.update(variables)
         return local_vars
+
 
 class KosTemplate(TemplateBase):
     API_GROUP = 'kos-operator.stable.sap.cc'
@@ -344,6 +352,7 @@ class KosTemplate(TemplateBase):
 
     def execute(self, state, variables):
         return super(KosTemplate, self).execute(state, variables)
+
 
 CRDS = [
     OpenstackSeed,

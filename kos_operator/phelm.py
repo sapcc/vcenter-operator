@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-import sys
 import io
 import attr
 import jsonpatch
@@ -17,8 +16,8 @@ api_client = client.ApiClient()
 def _remove_empty_from_dict(d):
     if type(d) is dict:
         return {
-             k: _remove_empty_from_dict(v) for k, v in d.items() if
-             v and _remove_empty_from_dict(v)}
+            k: _remove_empty_from_dict(v) for k, v in d.items() if
+            v and _remove_empty_from_dict(v)}
     elif type(d) is list:
         return [_remove_empty_from_dict(v) for v in d if
                 v and _remove_empty_from_dict(v)]
@@ -80,8 +79,8 @@ class DeploymentState:
         return delta
 
     @staticmethod
-    def _unique_items(l):
-        return [dict(t) for t in {tuple(d.items()) for d in l}]
+    def _unique_items(lst):
+        return [dict(t) for t in {tuple(d.items()) for d in lst}]
 
     def _diff(self, old_item, new_item):
         if not new_item:
@@ -182,7 +181,7 @@ class DeploymentState:
         for api, current, target in retry_list:
             try:
                 self._apply_delta(api, current, target)
-            except client.rest.ApiException as e:
+            except client.rest.ApiException:
                 LOG.exception("Could not apply change")
 
         # The apply above does not delete objects, we have to do that now

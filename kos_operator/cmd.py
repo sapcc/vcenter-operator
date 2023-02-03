@@ -51,7 +51,7 @@ def main():
         domain = 'cc.{}.cloud.sap'.format(region)
         global_options['own_namespace'] = 'kube-system'
         global_options['incluster'] = False
-    except:
+    except Exception:
         if 'KUBERNETES_SERVICE_HOST' not in os.environ:
             os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default'
         k8s_config.load_incluster_config()
@@ -60,9 +60,9 @@ def main():
                   'r') as f:
             global_options['own_namespace'] = f.read()
         with open('/etc/resolv.conf', 'r') as f:
-            for l in f:
-                if re.match('^search\s+', l):
-                    _, domain = l.rsplit(' ', 1)
+            for line in f:
+                if re.match('^search\s+', line):
+                    _, domain = line.rsplit(' ', 1)
 
     if 'SERVICE_DOMAIN' in os.environ:
         domain = os.environ['SERVICE_DOMAIN']
@@ -77,6 +77,7 @@ def main():
         LOG.debug('-----> exec poll <-----')
         configurator.poll()
         sleep(600)
+
 
 if __name__ == "__main__":
     main()

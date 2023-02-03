@@ -1,9 +1,8 @@
 import hashlib
 import logging
 
-from jinja2 import BaseLoader, ChoiceLoader, Environment, \
+from jinja2 import BaseLoader, Environment, \
     contextfilter, TemplateNotFound
-from kubernetes import client
 
 from .masterpassword import MasterPassword
 
@@ -81,6 +80,7 @@ class CustomResourceDefinitionLoader(BaseLoader):
 
     def list_templates(self):
         return sorted(self.mapping)
+
 
 CRD_LOADER = CustomResourceDefinitionLoader()
 
