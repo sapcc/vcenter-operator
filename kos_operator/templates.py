@@ -65,7 +65,8 @@ class CustomResourceDefinitionLoader(BaseLoader):
 
     def get_source(self, environment, template):
         if template in self.mapping:
-            version, source, jinja2_options = self.mapping[template]
+            values = self.mapping[template]
+            version, source, jinja2_options, owner = values
             restore_defaults(environment)
 
             for k in jinja2_options:
@@ -75,16 +76,31 @@ class CustomResourceDefinitionLoader(BaseLoader):
 
             return source, None, lambda: \
                 template in self.mapping and \
-                (version, source, jinja2_options) == self.mapping.get(template)
+                values == self.mapping.get(template)
         raise TemplateNotFound(template)
 
     def list_templates(self):
         return sorted(self.mapping)
 
+    def get_source_owner(self, template):
+        try:
+            return self.mapping[template][-1]
+        except KeyError:
+            raise TemplateNotFound(template)
+
 
 CRD_LOADER = CustomResourceDefinitionLoader()
 
-env = Environment(loader=CRD_LOADER)
+
+class K8sEnvironment(Environment):
+    def __init__(self):
+        super().__init__(loader=CRD_LOADER)
+
+    def get_source_owner(self, template_name):
+        return CRD_LOADER.get_source_owner(template_name)
+
+
+env = K8sEnvironment()
 
 env.filters['ini_escape'] = _ini_escape
 env.filters['ini_quote'] = _ini_quote
