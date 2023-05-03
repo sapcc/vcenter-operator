@@ -230,7 +230,7 @@ class CustomResourceDefinitionLoader(PollingLoader):
         singular = 'vcenter-template'
         plural = singular + 's'
         name = f'{plural}.{CustomResourceDefinitionLoader.API_GROUP}'
-        return client.V1beta1CustomResourceDefinition(
+        return client.V1CustomResourceDefinition(
             metadata={
                 'name': name,
             },
@@ -254,7 +254,7 @@ class CustomResourceDefinitionLoader(PollingLoader):
         if self._crd:
             return
 
-        api = client.ApiextensionsV1beta1Api()
+        api = client.ApiextensionsV1Api()
         self._crd = \
             CustomResourceDefinitionLoader._custom_resource_definition()
         try:

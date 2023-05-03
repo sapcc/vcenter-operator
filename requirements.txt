@@ -6,6 +6,6 @@ scrypt==0.8.6
 pyvmomi
 jinja2>=3,<4
 jsonpatch
-kubernetes>=21,<22
+kubernetes~=26.1
 keystoneauth1
 dumb-init
