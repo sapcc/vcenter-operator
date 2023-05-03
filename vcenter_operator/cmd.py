@@ -40,7 +40,12 @@ def main():
     try:
         k8s_config.load_kube_config()
         _, context = k8s_config.list_kube_config_contexts()
-        region = context['context']['cluster']
+        cluster = context['context']['cluster']
+        # I.e. kubectl-sync:1234:qa-de-2:1.25.6 -> qa-de-2
+        m = re.search(r'[a-z]+-[a-z]+-\d', cluster)
+        if not m:
+            raise RuntimeError(f"Cannot derive region from cluster {cluster}")
+        region = m[0]
         domain = f'cc.{region}.cloud.sap'
         global_options['own_namespace'] = 'kube-system'
         global_options['incluster'] = False
