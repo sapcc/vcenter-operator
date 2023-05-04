@@ -19,6 +19,7 @@ class KosQueryExecError(Exception):
 
 @lru_cache()
 def _get_connection(url, project, domain, user, password):
+    LOG.debug(f"Creating connection to {url}")
     return connection.Connection(
         auth_url=url,
         project_name=project,
@@ -103,7 +104,7 @@ class CustomResourceDefinitionBase(metaclass=abc.ABCMeta):
         if cls._crd:
             return
 
-        api = client.ApiextensionsV1beta1Api()
+        api = client.ApiextensionsV1Api()
         cls._crd = cls._custom_resource_definition()
         if cls._crd:
             try:
@@ -134,7 +135,7 @@ class OpenstackSeed(CustomResourceDefinitionBase):
         singular = 'openstackseed'
         plural = singular + 's'
         name = '{}.{}'.format(plural, cls.API_GROUP)
-        return client.V1beta1CustomResourceDefinition(
+        return client.V1CustomResourceDefinition(
             metadata={
                 'name': name,
             },
@@ -221,7 +222,7 @@ class KosQuery(CustomResourceDefinitionBase):
         singular = 'kos-query'
         plural = 'kos-queries'
         name = '{}.{}'.format(plural, cls.API_GROUP)
-        return client.V1beta1CustomResourceDefinition(
+        return client.V1CustomResourceDefinition(
             metadata={
                 'name': name,
             },
@@ -269,6 +270,7 @@ class KosQuery(CustomResourceDefinitionBase):
 
     def _get_user_password(self, variables):
         if not self.user or not self.domain:
+            LOG.warning("No user/domain")
             return
 
         for k in variables.get('seeds', {}).values():
@@ -340,7 +342,7 @@ class KosTemplate(TemplateBase):
         singular = 'kos-template'
         plural = singular + 's'
         name = '{}.{}'.format(plural, cls.API_GROUP)
-        return client.V1beta1CustomResourceDefinition(
+        return client.V1CustomResourceDefinition(
             metadata={
                 'name': name,
             },
