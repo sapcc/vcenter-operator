@@ -39,9 +39,6 @@ def _derive_password(ctx, username=None, host=None):
     mpw = MasterPassword(name=username, password=ctx['master_password'])
     password = mpw.derive('long', host)
 
-    if host.startswith('vc-'):
-        return password.replace("/", "")
-
     return password
 
 
