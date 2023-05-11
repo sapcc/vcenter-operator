@@ -105,8 +105,7 @@ class Configurator:
 
     def _connect_vcenter(self, host):
         """Create a connection to host and add it to self.vcenters"""
-        # Vcenter doesn't accept / in password
-        password = self.mpw.derive('long', host).replace("/", "")
+        password = self.mpw.derive('long', host)
 
         if host not in self.vcenters:
             self.vcenters[host] = {
