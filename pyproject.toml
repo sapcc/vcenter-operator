@@ -1,0 +1,28 @@
+
+[project]
+name = "vcenter-operator"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Fabian Wiesel", email = "fabian.wiesel@sap.com"},
+]
+dependencies = [
+    "attrs",
+    "dnspython @ git+https://github.com/sapcc/dnspython.git@ccloud",
+    "scrypt==0.8.6",
+    "pyvmomi",
+    "jinja2<4,>=3",
+    "kubernetes~=26.1",
+    "keystoneauth1",
+    "dumb-init"]
+
+requires-python = ">=3.10"
+readme = "README.rst"
+license = {text = "Apache-2.0"}
+
+[build-system]
+requires = ["setuptools ~= 65.5"]
+
+[tool.ruff]
+# Allow lines to be as long as 120 characters.
+line-length = 120
