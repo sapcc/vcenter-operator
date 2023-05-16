@@ -8,7 +8,6 @@ import ssl
 import time
 from contextlib import contextmanager
 from os.path import commonprefix
-from socket import error as socket_error
 
 from keystoneauth1.identity.v3 import Password
 from keystoneauth1.session import Session
@@ -153,7 +152,7 @@ class Configurator:
 
         except vim.fault.InvalidLogin as e:
             LOG.error("%s: %s", host, e.msg)
-        except (Exception, socket_error) as e:
+        except (OSError, Exception) as e:
             LOG.error("%s: %s", host, e)
 
         if vc.get('service_instance') is None:

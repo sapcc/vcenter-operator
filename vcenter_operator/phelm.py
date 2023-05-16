@@ -49,7 +49,7 @@ class DeploymentState:
                 item["metadata"]["ownerReferences"] = [owner]
             _id = (item['apiVersion'], item['kind'], item['metadata']['name'])
             if _id in self.items:
-                LOG.warning("Duplicate item #{}".format(_id))
+                LOG.warning(f"Duplicate item #{_id}")
             self.items[_id] = item
 
     def delta(self, other):
@@ -82,13 +82,13 @@ class DeploymentState:
                                  force_conflicts=True,  # Sole controller
                                  **resource_args)
         if self.dry_run:
-            LOG.info("Apply: {}/{}".format(resource, metadata_name))
+            LOG.info(f"Apply: {resource}/{metadata_name}")
             for line in json.dumps(
                     new_item, sort_keys=True,
                     indent=2, separators=(',', ': ')).splitlines():
                 LOG.debug(line)
         else:
-            LOG.debug("Apply: {}/{}".format(resource, metadata_name))
+            LOG.debug(f"Apply: {resource}/{metadata_name}")
 
     @staticmethod
     def get_client():
@@ -141,7 +141,7 @@ class DeploymentState:
 
             resource, resource_args = self._id_to_k8s(api_version, kind, name)
             try:
-                LOG.debug("Delete: {}/{}".format(resource, name))
+                LOG.debug(f"Delete: {resource}/{name}")
                 client.delete(resource, **resource_args)
             except k8s_client.rest.ApiException as e:
                 if e.status == 404:
