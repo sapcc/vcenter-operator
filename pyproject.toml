@@ -29,7 +29,7 @@ requires = ["setuptools ~= 65.5", "wheel"]
 [tool.ruff]
 # Allow lines to be as long as 120 characters.
 line-length = 120
-select = ["E", "F", "W", "I"]
+select = ["E", "F", "W", "I", "N"]
 
 [tool.tox]
 legacy_tox_ini = """
