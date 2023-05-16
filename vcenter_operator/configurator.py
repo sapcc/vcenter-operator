@@ -24,11 +24,11 @@ from .phelm import DeploymentState
 LOG = logging.getLogger(__name__)
 
 
-class VcConnectionFailed(Exception):
+class VcConnectionFailedError(Exception):
     pass
 
 
-class VcConnectSkipped(Exception):
+class VcConnectSkippedError(Exception):
     pass
 
 
@@ -95,7 +95,7 @@ class Configurator:
             host = f'{name}.{self.domain}'
             try:
                 self._reconnect_vcenter_if_necessary(host)
-            except VcConnectionFailed:
+            except VcConnectionFailedError:
                 LOG.error('Connecting to %s failed.', host)
                 continue
 
@@ -130,7 +130,7 @@ class Configurator:
             if time.time() < vc['last_retry_time'] + wait_time:
                 LOG.debug('Ignoring reconnection attempt to %s because of '
                           'incremental backoff (retry %s).', host, retries)
-                raise VcConnectSkipped()
+                raise VcConnectSkippedError()
 
         try:
             LOG.info(f"Connecting to {host}")
@@ -157,7 +157,7 @@ class Configurator:
             LOG.error("%s: %s", host, e)
 
         if vc.get('service_instance') is None:
-            raise VcConnectionFailed()
+            raise VcConnectionFailedError()
         vc['retries'] = 0
 
     def _reconnect_vcenter_if_necessary(self, host):
@@ -365,11 +365,11 @@ class Configurator:
                     state.apply()
 
                 self.states[host] = state
-            except VcConnectionFailed:
+            except VcConnectionFailedError:
                 LOG.error(
                     "Reconnecting to %s failed. Ignoring VC for this run.", host
                 )
-            except VcConnectSkipped:
+            except VcConnectSkippedError:
                 LOG.info("Ignoring disconnected %s for this run.", host)
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)

@@ -10,15 +10,15 @@ from masterpassword.masterpassword import MasterPassword
 LOG = logging.getLogger(__name__)
 
 
-class TemplateLoadingFailed(Exception):
+class TemplateLoadingError(Exception):
     pass
 
 
-class CustomResourceDefinitionLoadingFailed(TemplateLoadingFailed):
+class CustomResourceDefinitionLoadingError(TemplateLoadingError):
     pass
 
 
-class ConfigMapLoadingFailed(TemplateLoadingFailed):
+class ConfigMapLoadingError(TemplateLoadingError):
     pass
 
 
@@ -131,7 +131,7 @@ class ConfigMapLoader(PollingLoader):
                 if key.endswith(".j2"):
                     self.mapping[key] = value
         except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
-            raise ConfigMapLoadingFailed(e)
+            raise ConfigMapLoadingError(e)
 
 
 class CustomResourceDefinitionLoader(PollingLoader):
@@ -193,7 +193,7 @@ class CustomResourceDefinitionLoader(PollingLoader):
             resp = api.list_cluster_custom_object(
                 group, version, plural, **kwargs)
         except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
-            raise CustomResourceDefinitionLoadingFailed(e)
+            raise CustomResourceDefinitionLoadingError(e)
         # Doesn't work
         # self.resource_version = resp['metadata']['resourceVersion']
         for item in resp['items']:
@@ -274,7 +274,7 @@ class K8sEnvironment(Environment):
         for loader in self.loaders:
             try:
                 loader.poll()
-            except TemplateLoadingFailed:
+            except TemplateLoadingError:
                 all = False
                 LOG.exception("Failed to load templates")
         return all
