@@ -10,8 +10,6 @@ import time
 from contextlib import contextmanager
 from keystoneauth1.session import Session
 from keystoneauth1.identity.v3 import Password
-from keystoneauth1.exceptions.connection import ConnectionError
-from keystoneauth1.exceptions.http import HttpError
 from os.path import commonprefix
 from socket import error as socket_error
 from kubernetes import client
