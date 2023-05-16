@@ -1,12 +1,10 @@
 import base64
 import hashlib
 import logging
+
 import urllib3.exceptions
-
-from jinja2 import BaseLoader, ChoiceLoader, Environment, \
-    pass_context, TemplateNotFound
+from jinja2 import BaseLoader, ChoiceLoader, Environment, TemplateNotFound, pass_context
 from kubernetes import client
-
 from masterpassword.masterpassword import MasterPassword
 
 LOG = logging.getLogger(__name__)
