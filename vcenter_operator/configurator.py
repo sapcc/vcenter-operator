@@ -6,19 +6,20 @@ import logging
 import re
 import ssl
 import time
-
 from contextlib import contextmanager
-from keystoneauth1.session import Session
-from keystoneauth1.identity.v3 import Password
 from os.path import commonprefix
 from socket import error as socket_error
+
+from keystoneauth1.identity.v3 import Password
+from keystoneauth1.session import Session
 from kubernetes import client
-from pyVim.connect import SmartConnect, Disconnect
+from masterpassword.masterpassword import MasterPassword
+from pyVim.connect import Disconnect, SmartConnect
 from pyVmomi import vim
 
-from masterpassword.masterpassword import MasterPassword
-from .phelm import DeploymentState
 import vcenter_operator.vcenter_util as vcu
+
+from .phelm import DeploymentState
 
 LOG = logging.getLogger(__name__)
 

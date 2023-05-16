@@ -2,10 +2,9 @@ import logging
 from collections import defaultdict
 
 import attr
-
 from dns import tsigkeyring
 from dns.query import xfr
-from dns.rdatatype import SOA, A, AAAA, CNAME, AXFR
+from dns.rdatatype import AAAA, AXFR, CNAME, SOA, A
 from kubernetes import client
 
 LOG = logging.getLogger(__name__)
