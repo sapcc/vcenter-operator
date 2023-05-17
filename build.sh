@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
+rm -f /etc/apt/apt.conf.d/docker-clean
+echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+
 apt-get update
 apt-get install -y git
-pip install --only-binary=scrypt --no-cache-dir -e .
+
+pip install --only-binary=scrypt --disable-pip-version-check -e .
 
 # "Fake" a pbr.json to keep our changelog happy
 [ -f vcenter_operator.egg-info/pbr.json ] || (
@@ -13,5 +17,3 @@ EOT
 )
 
 apt-get purge --autoremove -y git
-rm -r /var/lib/apt/lists /var/cache/apt/archives
-mkdir -p /var/cache/apt/archives /var/lib/apt/lists
