@@ -9,7 +9,7 @@ authors = [
 dependencies = [
     "attrs",
     "dnspython~=2.3.0",
-    "scrypt==0.8.6",
+    "masterpassword @ git+https://github.com/sapcc/masterpassword@main",
     "pyvmomi",
     "jinja2<4,>=3",
     "kubernetes~=26.1",
@@ -22,10 +22,9 @@ license = {text = "Apache-2.0"}
 
 [project.scripts]
 vcenter-operator = "vcenter_operator.cmd:main"
-masterpassword = "vcenter_operator.masterpassword:main"
 
 [build-system]
-requires = ["setuptools ~= 65.5"]
+requires = ["setuptools ~= 65.5", "wheel"]
 
 [tool.ruff]
 # Allow lines to be as long as 120 characters.

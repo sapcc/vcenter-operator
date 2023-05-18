@@ -7,7 +7,7 @@ from jinja2 import BaseLoader, ChoiceLoader, Environment, \
     pass_context, TemplateNotFound
 from kubernetes import client
 
-from .masterpassword import MasterPassword
+from masterpassword.masterpassword import MasterPassword
 
 LOG = logging.getLogger(__name__)
 

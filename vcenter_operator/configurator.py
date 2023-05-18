@@ -16,7 +16,7 @@ from kubernetes import client
 from pyVim.connect import SmartConnect, Disconnect
 from pyVmomi import vim
 
-from .masterpassword import MasterPassword
+from masterpassword.masterpassword import MasterPassword
 from .phelm import DeploymentState
 import vcenter_operator.vcenter_util as vcu
 
