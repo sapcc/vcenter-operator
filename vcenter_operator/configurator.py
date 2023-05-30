@@ -180,20 +180,6 @@ class Configurator:
         values = {'clusters': {}, 'datacenters': {}}
         service_instance = vcenter_options['service_instance']
 
-        nsx_t_clusters = set()
-
-        with filter_spec_context(service_instance,
-                                 obj_type=vim.HostSystem,
-                                 path_set=['name', 'parent', 'config.network.opaqueSwitch']) as filter_spec:
-            for h in vcu.collect_properties(service_instance, [filter_spec]):
-                if 'config.network.opaqueSwitch' not in h:
-                    LOG.debug("Broken ESXi host %s detected in cluster %s",
-                              h['name'], h['parent'])
-                    continue
-                if len(h['config.network.opaqueSwitch']) > 0:
-                    LOG.debug("(Possible) NSX-T switch found on %s", h['name'])
-                    nsx_t_clusters.add(h['parent'])
-
         with filter_spec_context(service_instance) as filter_spec:
             availability_zones = set()
             cluster_options = None
@@ -209,10 +195,6 @@ class Configurator:
                     continue
                 bb_name_no_zeroes = f'bb{match.group(1)}'
 
-                nsx_t_enabled = cluster['obj'] in nsx_t_clusters
-                if nsx_t_enabled:
-                    LOG.debug('NSX-T enabled for %s', cluster_name)
-
                 parent = cluster['parent']
                 availability_zone = parent.parent.name.lower()
 
@@ -223,7 +205,7 @@ class Configurator:
                 cluster_options.update(name=bb_name_no_zeroes,
                                        cluster_name=cluster_name,
                                        availability_zone=availability_zone,
-                                       nsx_t_enabled=nsx_t_enabled,
+                                       nsx_t_enabled=True,
                                        vcenter_name=vcenter_options['name'])
 
                 if cluster_options.get('pbm_enabled', 'false') != 'true':
@@ -254,12 +236,6 @@ class Configurator:
                         # sometimes a portgroup might be already deleted when
                         # we try to query its name here
                         continue
-
-                if 'bridge' not in cluster_options and not nsx_t_enabled:
-                    LOG.warning("%s: Skipping cluster %s, "
-                                "cannot find bridge matching naming scheme",
-                                host, cluster_name)
-                    continue
 
                 values['clusters'][cluster_name] = cluster_options
 
