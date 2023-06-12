@@ -142,7 +142,7 @@ class DeploymentState:
             resource, resource_args = self._id_to_k8s(api_version, kind, name)
             try:
                 LOG.debug("Delete: {}/{}".format(resource, name))
-                client.delete(resource, name, **resource_args)
+                client.delete(resource, **resource_args)
             except k8s_client.rest.ApiException as e:
                 if e.status == 404:
                     pass
