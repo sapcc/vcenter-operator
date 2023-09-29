@@ -160,7 +160,7 @@ class OpenstackSeed(CustomResourceDefinitionBase):
 
     def execute(self, state, variables):
         seeds = variables.get('seeds', {})
-        seeds[self.item['metadata']['name']] = self.item['spec']
+        seeds[self.item['metadata']['name']] = self.item.copy()
         variables['seeds'] = seeds
         return variables
 
