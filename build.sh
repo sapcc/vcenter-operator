@@ -5,7 +5,7 @@ rm -f /etc/apt/apt.conf.d/docker-clean
 echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
 apt-get update
-apt-get upgrade
+apt-get upgrade -y
 apt-get install -y git
 
 pip install --only-binary=scrypt --disable-pip-version-check -e .
