@@ -296,36 +296,72 @@ class Configurator:
         self.os_session = Session(auth=auth)
 
     def _poll_nova_cells(self):
+        """Fetch information about Nova's cells"""
         namespace_nova = self.global_options['namespace']
-
         label_selector = 'system=openstack,component=nova,type=nova-cell'
+
+        # We either read a list of cell names into dict keys or a dict of cell
+        # name -> connection info into the global option "cells". Templates
+        # should be changed to use only the names, we keep the reading of
+        # Secrets for not-yet-updated templates.
+        configmap_return = self._poll_nova_cells_from_configmap(namespace_nova, label_selector)
+
+        secrets_return = self._poll_nova_cells_from_secrets(namespace_nova, label_selector)
+
+        return configmap_return or secrets_return
+
+    def _poll_nova_cells_from_configmap(self, namespace: str, label_selector: str) -> bool:
         try:
-            secrets = client.CoreV1Api().list_namespaced_secret(
-                namespace=namespace_nova,
+            configmaps = client.CoreV1Api().list_namespaced_config_map(
+                namespace=namespace,
                 label_selector=label_selector)
         except client.ApiException as e:
-            LOG.error(f"Failed to retrieve secrets with labels {label_selector} from ns {namespace_nova}: {e}")
+            LOG.error(f"Failed to retrieve configmaps with labels {label_selector} from ns {namespace}: {e}")
+            return False
+
+        if not configmaps.items:
+            return False
+
+        for configmap in configmaps.items:
+            try:
+                # cells is dictionary for compatibility reasons but is
+                # currently only used with "in" so we can set the list of cell
+                # names as keys with any value
+                self.global_options['cells'].update((k, True) for k in configmap.data['cells'].split(','))
+            except KeyError as e:
+                LOG.error("Malformed ConfigMap %s/%: KeyError %s", namespace, configmap.metadata.name, e)
+                return False
+
+        return True
+
+    def _poll_nova_cells_from_secrets(self, namespace, label_selector):
+        try:
+            secrets = client.CoreV1Api().list_namespaced_secret(
+                namespace=namespace,
+                label_selector=label_selector)
+        except client.ApiException as e:
+            LOG.error(f"Failed to retrieve secrets with labels {label_selector} from ns {namespace}: {e}")
             return False
 
         if not secrets.items:
-            return
+            return False
 
         for secret in secrets.items:
             if secret.type != 'Opaque':
-                LOG.error(f"Unknown secret type {secret.type} for {namespace_nova}/{secret.metadata.name}. "
+                LOG.error(f"Unknown secret type {secret.type} for {namespace}/{secret.metadata.name}. "
                           "Can only work with Opaque.")
                 return False
 
             try:
                 cell = {key: b64decode(value) for key, value in secret.data.items()}
             except Exception:
-                LOG.exception(f"Could not decode base64 values of secret {namespace_nova}/{secret.metadata.name}")
+                LOG.exception(f"Could not decode base64 values of secret {namespace}/{secret.metadata.name}")
                 return False
 
             try:
                 self.global_options['cells'][cell['name']] = cell
             except KeyError as e:
-                LOG.error(f"Malformed secret {namespace_nova}/{secret.metadata.name}: KeyError {e}")
+                LOG.error(f"Malformed secret {namespace}/{secret.metadata.name}: KeyError {e}")
                 return False
 
         return True
