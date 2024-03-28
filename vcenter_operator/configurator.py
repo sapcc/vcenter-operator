@@ -260,12 +260,13 @@ class Configurator:
         return self.global_options['own_namespace']
 
     def poll_config(self):
-        configmap = client.CoreV1Api().read_namespaced_config_map(
+        secret = client.CoreV1Api().read_namespaced_secret(
             namespace=self.namespace,
             name='vcenter-operator')
 
-        password = configmap.data.pop('password')
-        for key, value in configmap.data.items():
+        password = b64decode(secret.data.pop('password'))
+        for key, value in secret.data.items():
+            value = b64decode(value)
             try:
                 self.global_options[key] = json.loads(value)
             except ValueError:
