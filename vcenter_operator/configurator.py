@@ -67,7 +67,6 @@ class Configurator:
         self.password = None
         self.mpw = None
         self.domain = domain
-        self.os_session = None
         self.vcenters = dict()
         self.states = dict()
         self.poll_config()
@@ -275,25 +274,6 @@ class Configurator:
             self.global_options.update(master_password=password)
             self.password = password
             self.mpw = MasterPassword(self.username, self.password)
-            self.setup_os_session()
-
-    def setup_os_session(self):
-        os_username = self.global_options.get('os_username')
-        if not os_username:
-            return
-        os_username += self.global_options.get('user_suffix', '')
-        mpw = MasterPassword(os_username, self.password)
-        host = "identity-3." + self.domain.split('.', 1)[1]
-        password = mpw.derive('long', host)
-        auth = Password(
-            auth_url='https://' + host + '/v3',
-            username=os_username,
-            user_domain_name=self.global_options.get('os_user_domain_name'),
-            project_name=self.global_options.get('os_project_name'),
-            project_domain_name=self.global_options.get('os_project_domain_name'),
-            password=password,
-        )
-        self.os_session = Session(auth=auth)
 
     def _poll_nova_cells(self):
         """Fetch information about Nova's cells"""
