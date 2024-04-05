@@ -102,37 +102,6 @@ class PollingLoader(BaseLoader):
         return None
 
 
-class ConfigMapLoader(PollingLoader):
-    def __init__(self):
-        self.mapping = {}
-        self.resource_version = None
-
-    def get_source(self, environment, template):
-        if template in self.mapping:
-            restore_defaults(environment)
-            source = self.mapping[template]
-            return source, None, lambda: source == self.mapping.get(template)
-        raise TemplateNotFound(template)
-
-    def list_templates(self):
-        return sorted(self.mapping)
-
-    def poll(self):
-        try:
-            config = client.CoreV1Api().read_namespaced_config_map(
-                namespace='kube-system',
-                name='vcenter-operator')
-
-            if self.resource_version == config.metadata.resource_version:
-                return
-
-            self.mapping = {}
-            for key, value in config.data.items():
-                if key.endswith(".j2"):
-                    self.mapping[key] = value
-        except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
-            raise ConfigMapLoadingError(e)
-
 
 class CustomResourceDefinitionLoader(PollingLoader):
     API_GROUP = 'vcenter-operator.stable.sap.cc'
@@ -265,7 +234,6 @@ class K8sEnvironment(Environment):
     def __init__(self):
         self.loaders = [
             CustomResourceDefinitionLoader(),
-            ConfigMapLoader(),
         ]
         super().__init__(loader=ChoiceLoader(self.loaders))
 
