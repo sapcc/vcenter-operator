@@ -12,7 +12,7 @@ dependencies = [
     "masterpassword @ git+https://github.com/sapcc/masterpassword@main",
     "pyvmomi",
     "jinja2<4,>=3",
-    "kubernetes~=26.1",
+    "kubernetes~=28.0",
     "keystoneauth1",
     "dumb-init"]
 
