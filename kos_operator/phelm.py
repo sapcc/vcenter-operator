@@ -54,18 +54,25 @@ class DeploymentState:
         client = self.get_client()
         metadata_name = new_item['metadata']['name']
 
-        # If anything has changed, the server will trigger it
-        client.server_side_apply(resource, new_item,
-                                 force_conflicts=True,  # Sole controller
-                                 **resource_args)
         if self.dry_run:
-            LOG.info("Apply: {}/{}".format(resource, metadata_name))
+            LOG.info("Applying: {}/{}".format(resource, metadata_name))
             for line in json.dumps(
                     new_item, sort_keys=True,
                     indent=2, separators=(',', ': ')).splitlines():
                 LOG.debug(line)
         else:
-            LOG.debug("Apply: {}/{}".format(resource, metadata_name))
+            LOG.debug("Applying: {}/{}".format(resource, metadata_name))
+
+        # If anything has changed, the server will trigger it
+        try:
+            LOG.info(f"Replacing: {resource}/{metadata_name}")
+            client.server_side_apply(resource, new_item,
+                                    force_conflicts=True,  # Sole controller
+                                    **resource_args)
+        except dynamic.exceptions.UnprocessibleEntityError:
+            # If the server can't patch it, try to replace it
+            client.replace(resource, new_item,
+                           **resource_args)
 
     @staticmethod
     def get_client():
