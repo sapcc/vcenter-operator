@@ -321,6 +321,7 @@ class KosQuery(CustomResourceDefinitionBase):
             LOG.debug('exec code for {}'.format(self.name))
             exec(self.code, variables, local_vars)
         except Exception as e:
+            LOG.exception("Error executing query")
             raise KosQueryExecError('Error executing query: {}'.format(e))
 
         variables.pop('__builtins__')
