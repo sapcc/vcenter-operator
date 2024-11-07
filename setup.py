@@ -5,7 +5,7 @@ setup(
     version='1.0.0',
     packages=find_packages(include=['kos_operator', 'kos_operator.*']),
     install_requires=[
-        'pyOpenSSL==22.0.0',
+        'pyOpenSSL==23.0.0',
         'openstacksdk==1.0.0',
         'python-openstackclient==5.0.0',
         'python-ironicclient',
