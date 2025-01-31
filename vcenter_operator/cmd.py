@@ -48,7 +48,7 @@ def main():
             raise RuntimeError(f"Cannot derive region from cluster {cluster}")
         region = m[0]
         domain = f'cc.{region}.cloud.sap'
-        global_options['own_namespace'] = 'kube-system'
+        global_options['own_namespace'] = 'monsoon3'
         global_options['incluster'] = False
     except (OSError, k8s_config.config_exception.ConfigException):
         if 'KUBERNETES_SERVICE_HOST' not in os.environ:
