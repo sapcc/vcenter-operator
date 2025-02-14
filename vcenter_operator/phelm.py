@@ -36,18 +36,20 @@ class DeploymentState:
         for template_name in template_names:
             try:
                 template = env.get_template(template_name)
+                # e.g. vcenter_cluster/namespace/cr-name
+                namespace = template_name.split('/')[1]
                 result = template.render(options)
                 owner = env.get_source_owner(template_name)
-                self.add(result, owner)
+                self.add(result, owner, namespace)
             except (TemplateError, YAMLError):
                 LOG.exception("Failed to render %s", template_name)
 
-    def add(self, result, owner):
+    def add(self, result, owner, namespace):
         stream = io.StringIO(result)
         for item in yaml.safe_load_all(stream):
             if owner:
                 item["metadata"]["ownerReferences"] = [owner]
-            _id = (item['apiVersion'], item['kind'], item['metadata']['name'])
+            _id = (item['apiVersion'], item['kind'], item['metadata']['name'], namespace)
             if _id in self.items:
                 LOG.warning(f"Duplicate item #{_id}")
             self.items[_id] = item
@@ -78,22 +80,24 @@ class DeploymentState:
         metadata_name = new_item['metadata']['name']
 
         if self.dry_run:
-            LOG.info(f"Applying: {resource}/{metadata_name}")
+            LOG.info(f"Applying: {resource}/{metadata_name} in {resource_args['namespace']}")
             for line in json.dumps(
                     new_item, sort_keys=True,
                     indent=2, separators=(',', ': ')).splitlines():
                 LOG.debug(line)
         else:
-            LOG.debug(f"Applying: {resource}/{metadata_name}")
+            LOG.debug(f"Applying: {resource}/{metadata_name} in {resource_args['namespace']}")
 
         # If anything has changed, the server will trigger it
         try:
+            # Note: applies --dry-run if it's enabled in resource_args
             client.server_side_apply(resource, new_item,
                                     force_conflicts=True,  # Sole controller
                                     **resource_args)
         except dynamic.exceptions.UnprocessibleEntityError:
             # If the server can't patch it, try to replace it
-            LOG.info(f"Replacing: {resource}/{metadata_name}")
+            LOG.info(f"Replacing: {resource}/{metadata_name} in {resource_args['namespace']}")
+            # Note: applies --dry-run if it's enabled in resource_args
             client.replace(resource, new_item,
                            **resource_args)
 
@@ -106,7 +110,7 @@ class DeploymentState:
         client = DeploymentState.get_client()
         return client.resources.get(api_version=api_version, kind=kind)
 
-    def _id_to_k8s(self, api_version, kind, name):
+    def _id_to_k8s(self, api_version, kind, name, namespace):
         resource = self.get_resource(api_version=api_version, kind=kind)
 
         resource_args = {
@@ -115,7 +119,7 @@ class DeploymentState:
         }
 
         if resource.namespaced:
-            resource_args['namespace'] = self.namespace
+            resource_args['namespace'] = namespace
 
         if self.dry_run:
             resource_args['dry_run'] = "All"
@@ -126,8 +130,8 @@ class DeploymentState:
         retry_list = []
         client = self.get_client()
 
-        for (api_version, kind, name), target in self.items.items():
-            resource, resource_args = self._id_to_k8s(api_version, kind, name)
+        for (api_version, kind, name, namespace), target in self.items.items():
+            resource, resource_args = self._id_to_k8s(api_version, kind, name, namespace)
             try:
                 self._apply_item(resource, resource_args, target)
             except k8s_client.rest.ApiException as e:
@@ -146,9 +150,9 @@ class DeploymentState:
             if action != 'delete':
                 continue
 
-            resource, resource_args = self._id_to_k8s(api_version, kind, name)
+            resource, resource_args = self._id_to_k8s(api_version, kind, name, namespace)
             try:
-                LOG.debug(f"Delete: {resource}/{name}")
+                LOG.debug(f"Delete: {resource}/{name} in {namespace}")
                 client.delete(resource, **resource_args)
             except k8s_client.rest.ApiException as e:
                 if e.status == 404:
