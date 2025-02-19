@@ -9,8 +9,6 @@ import time
 from contextlib import contextmanager
 from os.path import commonprefix
 
-from keystoneauth1.identity.v3 import Password
-from keystoneauth1.session import Session
 from kubernetes import client
 from masterpassword.masterpassword import MasterPassword
 from pyVim.connect import Disconnect, SmartConnect
@@ -322,7 +320,6 @@ class Configurator:
             try:
                 values = self._poll(host)
                 state = DeploymentState(
-                    namespace=self.global_options['namespace'],
                     dry_run=(self.global_options.get('dry_run', 'False')
                              == 'True'))
 

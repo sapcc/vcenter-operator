@@ -19,7 +19,6 @@ LOG = logging.getLogger(__name__)
 
 @attr.s
 class DeploymentState:
-    namespace = attr.ib()
     dry_run = attr.ib(default=False)
     items = attr.ib(default=attr.Factory(OrderedDict))
     actions = attr.ib(default=attr.Factory(OrderedDict))
@@ -55,7 +54,7 @@ class DeploymentState:
             self.items[_id] = item
 
     def delta(self, other):
-        delta = DeploymentState(namespace=self.namespace)
+        delta = DeploymentState()
         # no ordering necessary for delete
         for k in self.items.keys() - other.items.keys():
             delta.actions[k] = 'delete'
