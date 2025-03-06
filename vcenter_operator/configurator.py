@@ -276,21 +276,18 @@ class Configurator:
 
     def _poll_nova_cells(self):
         """Fetch information about Nova's cells"""
-        namespace_nova = self.global_options['namespace']
         label_selector = 'system=openstack,component=nova,type=nova-cell'
 
         # We read a list of cell names into a set(). Templates can check if a
         # cell they would belong to exists and use the appropriate config of
         # their service.
-        return self._poll_nova_cells_from_configmap(namespace_nova, label_selector)
+        return self._poll_nova_cells_from_configmap(label_selector)
 
-    def _poll_nova_cells_from_configmap(self, namespace: str, label_selector: str) -> bool:
+    def _poll_nova_cells_from_configmap(self, label_selector: str) -> bool:
         try:
-            configmaps = client.CoreV1Api().list_namespaced_config_map(
-                namespace=namespace,
-                label_selector=label_selector)
+            configmaps = client.CoreV1Api().list_config_map_for_all_namespaces(label_selector=label_selector)
         except client.ApiException as e:
-            LOG.error(f"Failed to retrieve configmaps with labels {label_selector} from ns {namespace}: {e}")
+            LOG.error(f"Failed to retrieve configmaps with labels {label_selector}: {e}")
             return False
 
         if not configmaps.items:
@@ -300,7 +297,7 @@ class Configurator:
             try:
                 self.global_options['cells'].update(configmap.data['cells'].split(','))
             except KeyError as e:
-                LOG.error("Malformed ConfigMap %s/%: KeyError %s", namespace, configmap.metadata.name, e)
+                LOG.error("Malformed ConfigMap %s/%s: KeyError %s", configmap.metadata.namespace, configmap.metadata.name, e)
                 return False
 
         return True
