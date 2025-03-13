@@ -11,6 +11,7 @@ from .configurator import Configurator
 
 # Import discovery before configurator as there is some monkeypatching going on
 from .discovery import DnsDiscovery
+from .templates import env
 
 LOG = logging.getLogger(__name__)
 
@@ -64,6 +65,9 @@ def main():
 
     if 'SERVICE_DOMAIN' in os.environ:
         domain = os.environ['SERVICE_DOMAIN']
+
+    # Due to password rotation, creating CRDs and polling templates before discovering the DNS server
+    env.poll_loaders()
 
     configurator = Configurator(domain, global_options)
     configurator.poll_config()

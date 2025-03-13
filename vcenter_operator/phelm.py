@@ -23,11 +23,6 @@ class DeploymentState:
     items = attr.ib(default=attr.Factory(OrderedDict))
     actions = attr.ib(default=attr.Factory(OrderedDict))
 
-    @staticmethod
-    def poll_templates():
-        """ Poll all possible template inputs for the deployment states """
-        return env.poll_loaders()
-
     def render(self, scope, options):
         template_names = env.list_templates(
             filter_func=lambda x: (x.startswith(scope)
@@ -66,6 +61,8 @@ class DeploymentState:
                 delta.actions[k] = 'update'
                 delta.items[k] = other.items[k]
             # Nothing to do otherwise
+        # TODO Sort secrets before deployments
+        # currently sorted by keys -> configmaps before deployments before secrets because of alphabetical order
         # sort by (kind, name), so we update ConfigMaps before Deployments, so
         # that restarting pods can read the new ConfigMaps already
         for k in sorted(other.items.keys() - self.items.keys(),

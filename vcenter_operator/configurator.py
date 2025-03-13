@@ -17,6 +17,7 @@ from pyVmomi import vim
 import vcenter_operator.vcenter_util as vcu
 
 from .phelm import DeploymentState
+from .templates import env
 
 LOG = logging.getLogger(__name__)
 
@@ -258,6 +259,7 @@ class Configurator:
         return self.global_options['own_namespace']
 
     def poll_config(self):
+        """Poll the configuration from the secret vcenter-operator"""
         secret = client.CoreV1Api().read_namespaced_secret(
             namespace=self.namespace,
             name='vcenter-operator')
@@ -297,7 +299,8 @@ class Configurator:
             try:
                 self.global_options['cells'].update(configmap.data['cells'].split(','))
             except KeyError as e:
-                LOG.error("Malformed ConfigMap %s/%s: KeyError %s", configmap.metadata.namespace, configmap.metadata.name, e)
+                LOG.error("Malformed ConfigMap %s/%s: KeyError %s", configmap.metadata.namespace,
+                          configmap.metadata.name, e)
                 return False
 
         return True
@@ -310,15 +313,13 @@ class Configurator:
 
         # If we fail to update the templates, we rather do not continue
         # to avoid rendering only half of the deployment
-        if not DeploymentState.poll_templates():
+        if not env.poll_loaders():
             return
 
         for host in self.vcenters:
             try:
                 values = self._poll(host)
-                state = DeploymentState(
-                    dry_run=(self.global_options.get('dry_run', 'False')
-                             == 'True'))
+                state = DeploymentState(dry_run=(self.global_options.get('dry_run', 'False')== 'True'))
 
                 for options in values['clusters'].values():
                     state.render('vcenter_cluster', options)
