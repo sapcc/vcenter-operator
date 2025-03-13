@@ -21,6 +21,10 @@ class CustomResourceDefinitionLoadingError(TemplateLoadingError):
 class ConfigMapLoadingError(TemplateLoadingError):
     pass
 
+class VCenterServiceUserCRDUsernameTemplateDuplicateError(Exception):
+    """Exception to skip SSO connection attempts"""
+    pass
+
 
 def _ini_quote(value):
     return '"{}"'.format(_ini_escape(value).replace('"', '\\"'))
@@ -95,21 +99,26 @@ def _owner_from_obj(item):
 
 
 class PollingLoader(BaseLoader):
+    API_GROUP = 'vcenter-operator.stable.sap.cc'
+
+    def __init__(self):
+        self.mapping = {}
+        self._crd = None
+
     def poll(self):
         raise NotImplementedError()
 
     def get_source_owner(self, template_name):
         return None
 
+    def list_templates(self):
+        return sorted(self.mapping)
+
+    def get_mapping(self):
+        return self.mapping
 
 
-class CustomResourceDefinitionLoader(PollingLoader):
-    API_GROUP = 'vcenter-operator.stable.sap.cc'
-
-    def __init__(self):
-        self.mapping = {}
-        self._crd = None
-        self.resource_version = 0
+class VCenterTemplateCRDLoader(PollingLoader):
 
     def get_source(self, environment, template):
         if template in self.mapping:
@@ -125,9 +134,6 @@ class CustomResourceDefinitionLoader(PollingLoader):
                 template in self.mapping and \
                 (version, source, jinja2_options, owner) == self.mapping.get(template)
         raise TemplateNotFound(template)
-
-    def list_templates(self):
-        return sorted(self.mapping)
 
     def get_source_owner(self, template_name):
         if template_name not in self.mapping:
@@ -155,14 +161,11 @@ class CustomResourceDefinitionLoader(PollingLoader):
         group = self._crd.spec['group']
         plural = self._crd.spec['names']['plural']
         version = self._crd.spec['version']
-        kwargs = {}
-        if self.resource_version:
-            kwargs['resource_version'] = self.resource_version
         try:
-            resp = api.list_cluster_custom_object(
-                group, version, plural, **kwargs)
+            resp = api.list_cluster_custom_object(group, version, plural)
         except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
             raise CustomResourceDefinitionLoadingError(e)
+
         # Doesn't work
         # self.resource_version = resp['metadata']['resourceVersion']
         for item in resp['items']:
@@ -196,13 +199,13 @@ class CustomResourceDefinitionLoader(PollingLoader):
     def _custom_resource_definition():
         singular = 'vcenter-template'
         plural = singular + 's'
-        name = f'{plural}.{CustomResourceDefinitionLoader.API_GROUP}'
+        name = f'{plural}.{VCenterTemplateCRDLoader.API_GROUP}'
         return client.V1CustomResourceDefinition(
             metadata={
                 'name': name,
             },
             spec={
-                'group': CustomResourceDefinitionLoader.API_GROUP,
+                'group': VCenterTemplateCRDLoader.API_GROUP,
                 'version': 'v1',
                 'versions': [{'name': 'v1',
                               'served': True,
@@ -223,17 +226,121 @@ class CustomResourceDefinitionLoader(PollingLoader):
 
         api = client.ApiextensionsV1Api()
         self._crd = \
-            CustomResourceDefinitionLoader._custom_resource_definition()
+            VCenterTemplateCRDLoader._custom_resource_definition()
+
         try:
             api.create_custom_resource_definition(self._crd)
         except client.rest.ApiException:
-            pass
+            LOG.exception("Failed to create custom resource definition vcenter-template")
+
+
+class VCenterServiceUserCRDLoader(PollingLoader):
+
+    def load(self):
+        try:
+            self.poll()
+        except CustomResourceDefinitionLoadingError as e:
+            LOG.error("Failed to load service-user templates: %s", e)
+            return False
+
+        return True
+
+    def poll(self):
+        if not self._crd:
+            self._create_custom_resource_definitions()
+
+        api = client.CustomObjectsApi()
+
+        mapping = dict()
+
+        group = self._crd.spec["group"]
+        plural = self._crd.spec["names"]["plural"]
+        version = self._crd.spec["version"]
+        try:
+            resp = api.list_cluster_custom_object(group, version, plural)
+        except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
+            raise CustomResourceDefinitionLoadingError(e)
+
+        for item in resp["items"]:
+            # Get service-user template names
+            try:
+                metadata = item["metadata"]
+                version = metadata["resourceVersion"]
+                name = metadata["name"]
+                namespace = metadata["namespace"]
+                service_username_template = item["spec"]["username"]
+                self._check_service_username_template_exists(mapping, service_username_template)
+                mapping[name] = (version, service_username_template, namespace)
+            except KeyError as e:
+                LOG.error("Failed for %s/%s due to missing key %s", namespace, name, e)
+        self.mapping = mapping
+
+    def _check_service_username_template_exists(self, mapping, service_username_template):
+        # Checks if the service_username_template already exists to prevent duplicates and potential conflicts
+        # Also checks if the service_username_template is a substring of an existing template to prevent conflicts
+        for value in mapping.values():
+            if service_username_template == value[1] or value[1].startswith(service_username_template):
+                raise VCenterServiceUserCRDUsernameTemplateDuplicateError()
+
+    @staticmethod
+    def _custom_resource_definition():
+        singular = "vcenter-service-user"
+        plural = singular + "s"
+        name = f"{plural}.{VCenterServiceUserCRDLoader.API_GROUP}"
+        return client.V1CustomResourceDefinition(
+            metadata={
+                "name": name,
+            },
+            spec={
+                "group": VCenterServiceUserCRDLoader.API_GROUP,
+                "version": "v1",
+                "versions": [
+                    {
+                        "name": "v1",
+                        "served": True,
+                        "storage": True,
+                        "schema": {
+                            "openAPIV3Schema": {
+                                "type": "object",
+                                "properties": {
+                                    "spec": {
+                                        "type": "object",
+                                        "properties": {
+                                            "username": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+                "scope": "Namespaced",
+                "names": {
+                    "singular": singular,
+                    "plural": plural,
+                    "kind": "VCenterServiceUser",
+                    "shortNames": ["vcsu"],
+                },
+            },
+        )
+
+    def _create_custom_resource_definitions(self):
+        if self._crd:
+            return
+
+        api = client.ApiextensionsV1Api()
+        self._crd = VCenterServiceUserCRDLoader._custom_resource_definition()
+
+        try:
+            api.create_custom_resource_definition(self._crd)
+        except client.rest.ApiException:
+            LOG.exception("Failed to create custom resource definition service-user")
 
 
 class K8sEnvironment(Environment):
     def __init__(self):
         self.loaders = [
-            CustomResourceDefinitionLoader(),
+            VCenterTemplateCRDLoader(),
         ]
         super().__init__(loader=ChoiceLoader(self.loaders))
 
@@ -254,8 +361,14 @@ class K8sEnvironment(Environment):
                 return owner
         return None
 
+    def get_jinja2_options(self, path):
+        for loader in self.loaders:
+            if path in loader.mapping:
+                return loader.mapping[path][2]
+
 
 env = K8sEnvironment()
+vcenter_service_user_crd_loader = VCenterServiceUserCRDLoader()
 
 env.filters['ini_escape'] = _ini_escape
 env.filters['ini_quote'] = _ini_quote

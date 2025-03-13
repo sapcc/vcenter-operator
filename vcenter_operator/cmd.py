@@ -6,11 +6,12 @@ import sys
 from time import sleep
 
 from kubernetes import config as k8s_config
+from pyvmomi_extended import extend_pyvmomi
 
-from .configurator import Configurator
+from vcenter_operator.configurator import Configurator
 
 # Import discovery before configurator as there is some monkeypatching going on
-from .discovery import DnsDiscovery
+from vcenter_operator.discovery import DnsDiscovery
 
 LOG = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ def _build_arg_parser():
 
 
 def main():
+    # Extend pyvmomi with the methods to use ssoadmin
+    extend_pyvmomi()
+
     args = _build_arg_parser().parse_args(sys.argv[1:])
     global_options = {'dry_run': str(args.dry_run)}
 
@@ -47,6 +51,7 @@ def main():
         if not m:
             raise RuntimeError(f"Cannot derive region from cluster {cluster}")
         region = m[0]
+        global_options['region'] = region
         domain = f'cc.{region}.cloud.sap'
         global_options['own_namespace'] = 'monsoon3'
         global_options['incluster'] = False
@@ -61,6 +66,9 @@ def main():
             for line in f:
                 if re.match(r'^search\s+', line):
                     _, domain = line.rsplit(' ', 1)
+        # cc.{region}.cloud.sap
+        region = domain.split('.')[1]
+        global_options['region'] = region
 
     if 'SERVICE_DOMAIN' in os.environ:
         domain = os.environ['SERVICE_DOMAIN']
