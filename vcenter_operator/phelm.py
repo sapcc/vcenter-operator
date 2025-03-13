@@ -145,7 +145,7 @@ class DeploymentState:
             except k8s_client.rest.ApiException:
                 LOG.exception("Could not apply change")
 
-        for (api_version, kind, name), action in self.actions.items():
+        for (api_version, kind, name, namespace), action in self.actions.items():
             if action != 'delete':
                 continue
 
