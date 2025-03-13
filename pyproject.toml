@@ -10,11 +10,13 @@ dependencies = [
     "attrs",
     "dnspython~=2.3.0",
     "masterpassword @ git+https://github.com/sapcc/masterpassword@main",
-    "pyvmomi",
+    "pyvmomi[sso]<9.0",
     "jinja2<4,>=3",
     "kubernetes~=28.0",
     "keystoneauth1",
-    "dumb-init"]
+    "dumb-init",
+    "pyvmomi-extended @ git+https://github.com/sapcc/pyvmomi-extended@main"
+    ]
 
 requires-python = ">=3.10"
 readme = "README.rst"
