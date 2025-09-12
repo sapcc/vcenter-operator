@@ -66,6 +66,7 @@ class DeploymentState:
             return template.render(options)
 
         service_name = jinja2_options["uses-service-user"]
+        use_ini_password = jinja2_options.get("use-ini-password", False)
         service_user_path = f"{options['region']}/vcenter-operator/{service_name}/{options['vcenter_name']}"
 
         if service_name not in service_user_crds:
@@ -95,7 +96,8 @@ class DeploymentState:
         password_path = (
             "{{ "
             f'resolve "vault+kvv2:///secrets/{service_user_path}/password?version={options["service_user_version"]}"'
-            " }}"
+            + (' | replace "$" "$$"' if use_ini_password else "")
+            + " }}"
         )
 
         options["username"] = username_path
