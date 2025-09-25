@@ -573,7 +573,7 @@ class Configurator:
                           service_user, service_username_template)
                 continue
 
-            version = str(int(service_user[-4:]))
+            version = str(int(service_user.removeprefix(service_username_template)))
             # Recreating the ground truth for service-users
             if version not in self.vcenter_service_user_tracker[service][host].keys():
                 self.vcenter_service_user_tracker[service][host][version] = time.time()

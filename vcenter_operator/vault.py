@@ -281,8 +281,8 @@ class Vault:
         password = service_user_data.get("data", {}).get("password")
 
         if (
-            service_username_template in username
-            and str(int(username[-4:])) == version
+            username.startswith(service_username_template)
+            and str(int(username.removeprefix(service_username_template))) == version
             and self.check_password_strength(password)
         ):
             LOG.info("Found valid username and password for service %s", service)
