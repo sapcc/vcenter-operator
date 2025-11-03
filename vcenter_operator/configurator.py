@@ -21,6 +21,7 @@ from vcenter_operator.phelm import DeploymentState, ServiceUserPathNotFoundError
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
 from vcenter_operator.vault import Vault, VaultSecretNotReplicatedError, VaultUnavailableError
 from vcenter_operator.vcenter_sso import SSOSkippedError, VCenterSSO
+from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper
 
 LOG = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ class VcConnectionFailedError(Exception):
 class VcConnectSkippedError(Exception):
     pass
 
+class NSXTManagementError(Exception):
+    pass
 
 def b64decode(s):
     """Decode the given string and return str() instead of bytes"""
@@ -403,7 +406,7 @@ class Configurator:
             try:
                 values = self._poll(host)
                 self._check_pods_and_update_service_user_tracker()
-                vc_clusters = [ cluster for cluster in values["clusters"]]
+                vc_clusters = [cluster for cluster in values["clusters"]]
                 self._reconcile_service_users(host, vc_clusters)
 
                 state = DeploymentState(dry_run=(self.global_options.get('dry_run', 'False') == 'True'))
@@ -435,6 +438,10 @@ class Configurator:
                 LOG.warning("Ignoring host %s for this run due to Vault not beeing replicated", host)
             except SSOSkippedError:
                 LOG.warning("Ignoring host %s for this run due to SSO being unavailable", host)
+            except NSXTSkippedError as e:
+                LOG.warning(e)
+            except NSXTManagementError as e:
+                LOG.warning(e)
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
             except ServiceUserPathNotFoundError as e:
@@ -462,8 +469,8 @@ class Configurator:
                     try:
                         management_user = self.vault.get_secret(management_user_path)
                     except Exception:
-                        LOG.exception("NSXT: Not able to fetch management user for nsxt shell user %s", management_user_path)
-                        continue
+                        msg = f"NSXT: Not able to fetch management user for nsxt shell user {management_user_path}"
+                        raise NSXTManagementError(msg)
 
                     if not management_user:
                         LOG.error("NSXT: Could not read management user for service user creation: %s", management_user_path)
@@ -473,8 +480,9 @@ class Configurator:
                     LOG.info("NSXT: Check service user %s %s %s", path, service_username_template, service)
 
                     latest_version = self._check_vault_user(path, service_username_template, service)
-                    self._check_nsxt_service_user(service_username_template, service, bb_name, path, latest_version,
-                                                  group="admin")
+                    self._check_nsxt_service_user(service_username_template, service, self.global_options['region'], bb_name, path, latest_version,
+                                                  management_user,
+                                                  role="enterprise_admin")
                 continue
             # host: {name}.{domain}
             vcenter_name = host.split('.')[0]
@@ -482,7 +490,6 @@ class Configurator:
 
             latest_version = self._check_vault_user(path, service_username_template, service)
             self._check_service_user_vcenter(service_username_template, service, host, path, latest_version)
-
 
     def _check_vault_user(self, path, service_username_template, service):
         if path not in self.last_service_user_check:
@@ -621,7 +628,7 @@ class Configurator:
 
             if self.vcenter_service_user_tracker[service][host][version] + self.max_time_not_seen < time.time():
                 LOG.info("Deleting service-user %s in vcenter %s because it was not seen for %d seconds", service_user,
-                          host, self.max_time_not_seen)
+                         host, self.max_time_not_seen)
                 self.vcenter_sso.delete_service_user(host, service_user)
                 del self.vcenter_service_user_tracker[service][host][version]
 
@@ -661,7 +668,7 @@ class Configurator:
                     _, service_username_template, _ = service_users[service]
                     service_user = service_username_template + str(version).zfill(4)
                     LOG.debug("Found pod with service-user %s and version %s - updating last seen timestamp",
-                               service_user, version)
+                              service_user, version)
 
                     # Check if vcenter_service_user_tracker has an entry for vcenter and service combination
                     if service not in self.vcenter_service_user_tracker:
@@ -674,6 +681,97 @@ class Configurator:
             else:
                 LOG.info("Pod %s misses host or version label (%s/%s). Skipping Pod for user management", pod.metadata.name, host, version)
 
-    def _check_nsxt_service_user(self, service_user_prefix, service, bb, path, latest_version, group):
+    def _check_nsxt_service_user(self, service_user_prefix, service, region, bb, path, latest_version, management_user, role):
         """Check if service-user is still running"""
-        pass
+        current_username = service_user_prefix + str(latest_version).zfill(4)
+        nsxt = NsxtUserAPIHelper(user=management_user["username"], password=management_user["password"],
+                                 bb=bb, region=region)
+
+        try:
+            active_users = nsxt.list_users(prefix=service_user_prefix)
+        except Exception as e:
+            msg = f"Failed to list users - {e}"
+            raise NSXTSkippedError(msg)
+
+        # Check if vcenter_service_user_tracker has an entry for vcenter and service combination
+        if service not in self.vcenter_service_user_tracker:
+            self.vcenter_service_user_tracker[service] = dict()
+
+        if bb not in self.vcenter_service_user_tracker[service]:
+            self.vcenter_service_user_tracker[service][bb] = dict()
+
+        # Create current user in NSXT
+        if current_username not in active_users:
+            LOG.info("Creating NSXT service-user %s in NSXT Manager for BB %s", current_username, bb)
+
+            secret = self.vault.get_secret(path)
+
+            if secret['username'] != current_username:
+                LOG.warning("NSXT service-user in vault does not match the current username")
+                self.vault.trigger_replicate(path)
+                raise VaultSecretNotReplicatedError
+
+            try:
+                nsxt.create_service_user(secret['username'], secret['password'])
+                nsxt.add_user_to_group(current_username, role)
+            except Exception as e:
+                msg = f"Failed to manage NSXT service-user {current_username}. Failed with error {e}"
+                raise NSXTSkippedError(msg)
+
+            # Create Session with new user
+            try:
+                tmp_nsxt = NsxtUserAPIHelper(user=secret['username'], password=secret['password'],
+                                             bb=bb, region=region, dry_run=dry_run)
+                tmp_nsxt.connect()
+            except Exception as e:
+                raise NSXTSkippedError(e)
+
+            # Remove leading zeros
+            curr_version = str(int(latest_version))
+            self.vcenter_service_user_tracker[service][bb][curr_version] = time.time()
+
+        # If missing, add the role to the user
+        try:
+            user_has_group = nsxt.check_users_in_group(current_username, role)
+        except Exception as e:
+            msg = f"Failed to check user {current_username} has role {role}. Error:{e}"
+            raise NSXTSkippedError(msg)
+
+        if not user_has_group:
+            LOG.info("NSXT service-user %s misses role %s. Adding it", current_username, role)
+
+            try:
+                nsxt.add_user_to_group(current_username, role)
+            except Exception as e:
+                msg = f"Failed to add user {current_username} to group {role}. Failed with error {e}"
+                raise NSXTSkippedError(msg)
+
+        # Search stale/outdated service-user
+        for user in active_users:
+            if not user.startswith(service_user_prefix):
+                LOG.debug("Service-user %s does not match service-user template %s - skipping",
+                          user, service_user_prefix)
+                continue
+
+            version = str(int(user.removeprefix(service_user_prefix)))
+
+            # Stale user - remove in a a later iteration
+            if version not in self.vcenter_service_user_tracker[service][bb].keys():
+                LOG.info("NSXT: Found stale service-user %s in NSXT Manager for BB %s", user, bb)
+                self.vcenter_service_user_tracker[service][bb][version] = time.time()
+                continue
+
+            # Do not delete the active user
+            if user == current_username:
+                continue
+
+            if self.vcenter_service_user_tracker[service][bb][version] + self.max_time_not_seen < time.time():
+                LOG.info("NSXT: Deleting service-user %s in NSXT Manager for BB %s because it was reconciled for %d seconds",
+                         user, bb, self.max_time_not_seen)
+
+                try:
+                    nsxt.delete_service_user(user)
+                except Exception as e:
+                    msg =f"Failed to delete service user {user} in BB {bb}. Failed with Error: {e}"
+                    raise NSXTSkippedError(msg)
+                del self.vcenter_service_user_tracker[service][bb][version]
