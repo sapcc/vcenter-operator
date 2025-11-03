@@ -21,6 +21,7 @@ from vcenter_operator.phelm import DeploymentState, ServiceUserPathNotFoundError
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
 from vcenter_operator.vault import Vault, VaultSecretNotReplicatedError, VaultUnavailableError
 from vcenter_operator.vcenter_sso import SSOSkippedError, VCenterSSO
+from vcenter_operator.nsxt_user_manager import NsxtUserAPIHelper
 
 LOG = logging.getLogger(__name__)
 
@@ -633,3 +634,73 @@ class Configurator:
                         self.vcenter_service_user_tracker[service][vcenter] = dict()
 
                     self.vcenter_service_user_tracker[service][vcenter][str(version)] = time.time()
+
+    def _check_nsxt_service_user(self, service_user_prefix, service, bb, path, latest_version, group):
+        """Check if service-user is still running"""
+
+        technical_user = "osapinsxt"
+        password = ""
+        region = "qa-de-1"
+        role = "admin"
+
+        current_username = service_user_prefix + str(latest_version).zfill(4)
+
+        nsxt = NsxtUserAPIHelper(technical_user, password, bb, region)
+        active_users = nsxt.list_users(prefix=service_user_prefix)
+
+        # Check if vcenter_service_user_tracker has an entry for vcenter and service combination
+        if service not in self.vcenter_service_user_tracker:
+            self.vcenter_service_user_tracker[service] = dict()
+
+        if bb not in self.vcenter_service_user_tracker[service]:
+            self.vcenter_service_user_tracker[service][bb] = dict()
+
+        ## NSXT limits the number of active users to 2
+        user_limit_reached = len(active_users) > 1
+        ## Create current user in NSXT
+        if  current_username not in active_users:
+            LOG.info("Creating NSXT service-user %s in NSXT Manager for BB %s", current_username, bb)
+
+            secret = self.vault.get_secret(path)
+
+            if secret['username'] != current_username:
+                LOG.warning("NSXT service-user in vault does not match the current username")
+                self.vault.trigger_replicate(path)
+                raise VaultSecretNotReplicatedError
+
+            if not user_limit_reached:
+                LOG.error("NSX-T supports only 2 technical users. Currenlty active uses %s", active_users)
+                nsxt.create_service_user(secret['username'], secret['password'])
+                nsxt.add_user_to_group(current_username, group)
+                ## Remove leading zeros
+                self.vcenter_service_user_tracker[service][bb][str(int(latest_version))] = time.time()
+
+        ## User needs the correct role
+        if not (nsxt.check_users_in_group(current_username, group)) and not user_limit_reached:
+            LOG.info("NSXT service-user %s misses role %s. Adding it", current_username, role)
+            nsxt.add_user_to_group(current_username, group)
+
+        ## Check outdated service-user
+        for user in active_users:
+            if not user.startswith(service_user_prefix):
+                LOG.debug("Service-user %s does not match service-user template %s - skipping",
+                          user, service_user_prefix)
+                continue
+
+            version = str(int(user.removeprefix(service_user_prefix)))
+
+            ## Stale user - remove in a a later iteration
+            if version not in self.vcenter_service_user_tracker[service][bb].keys():
+                LOG.info("NSXT: Found stale service-user %s in NSXT Manager for BB %s", user, bb)
+                self.vcenter_service_user_tracker[service][bb][version] = time.time()
+                continue
+
+            ## Do not delete the active user
+            if user == current_username:
+                continue
+
+            if self.vcenter_service_user_tracker[service][bb][version] + self.max_time_not_seen < time.time():
+                LOG.info("NSXT: Deleting service-user %s in NSXT Manager for BB %s because it was reconciled for %d seconds", 
+                         user, bb, self.max_time_not_seen)
+                nsxt.delete_service_user(user)
+                del self.vcenter_service_user_tracker[service][bb][version]
