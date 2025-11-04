@@ -144,7 +144,7 @@ class Vault:
         return resp.json()
 
     @require_vault_parameters
-    def create_service_user(self, username_template, path, service, last_version=None):
+    def create_service_user(self, username_template, path, cr_name, last_version=None):
         """Create the service-user"""
 
         # Initial username starting with 0001 (version 1)
@@ -161,7 +161,7 @@ class Vault:
             LOG.debug("Dry-run: Would have created service-user")
             return "1", username, password
 
-        version = self.store_service_user_credentials(username, password, path, service)
+        version = self.store_service_user_credentials(username, password, path, cr_name)
 
         self.trigger_replicate(path)
 
@@ -222,7 +222,7 @@ class Vault:
         resp.raise_for_status()
 
     @require_vault_parameters
-    def store_service_user_credentials(self, username, password, path, service):
+    def store_service_user_credentials(self, username, password, path, cr_name):
         """Stores the service-user credentials in vault"""
 
         headers = self._get_headers()
@@ -248,7 +248,7 @@ class Vault:
 
         metadata = {
             "custom_metadata": {
-                "accessed_resource": service,
+                "accessed_resource": cr_name,
                 "application_criticallity": "high",
                 "expiry_date": (datetime.now() + timedelta(days=EXPIRY_DAYS)).strftime("%Y-%m-%d"),
                 "owner": "vcenter-operator",
@@ -271,7 +271,7 @@ class Vault:
         return version
 
     @require_vault_parameters
-    def check_and_update_username_if_neccessary(self, path, service, service_username_template):
+    def check_and_update_username_if_neccessary(self, path, cr_name, service_username_template):
         """Check if the username is still valid after rotation and update the username if necessary"""
 
         service_user_data = self.get_service_user_data(path)
@@ -285,15 +285,15 @@ class Vault:
             and str(int(username.removeprefix(service_username_template))) == version
             and self.check_password_strength(password)
         ):
-            LOG.info("Found valid username and password for service %s", service)
+            LOG.info("Found valid username and password for service %s", cr_name)
             return version
 
         username = service_username_template + str(int(version) + 1).zfill(4)
         password = self.gen_password()
 
-        LOG.info("Need to update username and password for service %s", service)
+        LOG.info("Need to update username and password for service %s", cr_name)
 
-        version = self.store_service_user_credentials(username, password, path, service)
+        version = self.store_service_user_credentials(username, password, path, cr_name)
         return version
 
     @require_vault_parameters
