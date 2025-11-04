@@ -35,8 +35,9 @@ def test_update_last_seen_of_valid_pod(configurator):
         "test_service": {"test_host": {"test_service_user_template0001": old_last_seen}}
     }
 
+    spec = {"username": "test_service_user_template"}
     vcenter_service_user_crd_loader.get_mapping.return_value =\
-        {"test_service": ("", {"username": "test_service_user_template"}, "")}
+        {"test_service": ("", spec, "")}
 
     pod = V1Pod(
         metadata=V1ObjectMeta(
@@ -94,5 +95,39 @@ def test_update_last_seen_of_valid_pod_wrong_version(configurator):
     assert "2" in configurator.vcenter_service_user_tracker["test_service"]["test_host"]
     assert (
         configurator.vcenter_service_user_tracker["test_service"]["test_host"]["2"]
+        > old_last_seen
+    )
+
+
+def test_nsxt_update_last_seen_of_valid_pod(configurator):
+    """Test the update of a valid pod"""
+    old_last_seen = time.time()
+    host = "bb123"
+    configurator.vcenter_service_user_tracker = {
+        "test_service": {host: {"test_service_user_template0001": old_last_seen}}
+    }
+
+    spec = {"username": "test_service_user_template", "service": "nsxt"}
+    vcenter_service_user_crd_loader.get_mapping.return_value =\
+        {"test_service": ("", spec, "")}
+
+    pod = V1Pod(
+        metadata=V1ObjectMeta(
+            annotations={"uses-service-user": "test_service"},
+            labels={"vccluster": "productionbb123", "vcenter-operator-secret-version": "1"},
+        )
+    )
+    pod_list = V1PodList(items=[pod])
+    with patch("kubernetes.client.CoreV1Api") as mock_api_cls:
+        mock_api = MagicMock()
+        mock_api.list_namespaced_pod.return_value = pod_list
+        mock_api_cls.return_value = mock_api
+
+        configurator._check_pods_and_update_service_user_tracker()
+
+    assert host in configurator.vcenter_service_user_tracker["test_service"]
+    assert "1" in configurator.vcenter_service_user_tracker["test_service"][host]
+    assert (
+        configurator.vcenter_service_user_tracker["test_service"][host]["1"]
         > old_last_seen
     )
