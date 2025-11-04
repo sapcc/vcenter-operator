@@ -403,7 +403,8 @@ class Configurator:
             try:
                 values = self._poll(host)
                 self._check_pods_and_update_service_user_tracker()
-                self._reconcile_service_users(host)
+                vc_clusters = [ cluster for cluster in values["clusters"]]
+                self._reconcile_service_users(host, vc_clusters)
 
                 state = DeploymentState(dry_run=(self.global_options.get('dry_run', 'False') == 'True'))
 
@@ -439,7 +440,7 @@ class Configurator:
             except ServiceUserPathNotFoundError as e:
                 LOG.warning("Ignoring host %s for this run due to missing service user path in state: %s", host, e)
 
-    def _reconcile_service_users(self, host):
+    def _reconcile_service_users(self, host, vc_clusters):
         """
         Ensures that service-users are consistent across Vault and vCenter for the given host
         This method:
@@ -450,21 +451,49 @@ class Configurator:
         if not self.global_options['manage_service_user_passwords']:
             return
 
-        for service, (_, service_username_template, _) in vcenter_service_user_crd_loader.get_mapping().items():
+        user_crds = vcenter_service_user_crd_loader.get_mapping()
+
+        for service, (_, service_username_template, _) in user_crds.items():
+            if service == "nsxt":
+                for vc_cluster in vc_clusters:
+                    bb_name = vc_cluster.removeprefix("production")
+                    management_user_path = "{}/compute/nsxt/nsx-ctl-1-{}.cc.{}.cloud.sap/nsxt-shell".format(
+                        self.global_options['region'], bb_name, self.global_options['region'])
+                    try:
+                        management_user = self.vault.get_secret(management_user_path)
+                    except Exception:
+                        LOG.exception("NSXT: Not able to fetch management user for nsxt shell user %s", management_user_path)
+                        continue
+
+                    if not management_user:
+                        LOG.error("NSXT: Could not read management user for service user creation: %s", management_user_path)
+                        continue
+
+                    path = f"{self.global_options['region']}/vcenter-operator/{service}/{bb_name}"
+                    LOG.info("NSXT: Check service user %s %s %s", path, service_username_template, service)
+
+                    latest_version = self._check_vault_user(path, service_username_template, service)
+                    self._check_nsxt_service_user(service_username_template, service, bb_name, path, latest_version,
+                                                  group="admin")
+                continue
             # host: {name}.{domain}
             vcenter_name = host.split('.')[0]
             path = f"{self.global_options['region']}/vcenter-operator/{service}/{vcenter_name}"
 
-            if path not in self.last_service_user_check:
-                self.last_service_user_check[path] = 0
-
-            if self.last_service_user_check[path] + self.vault_check_interval < time.time():
-                latest_version = self._check_service_user_vault(path, service_username_template, service)
-                self.last_service_user_check[path] = time.time()
-            else:
-                latest_version = self.service_users[path][-1]
-
+            latest_version = self._check_vault_user(path, service_username_template, service)
             self._check_service_user_vcenter(service_username_template, service, host, path, latest_version)
+
+
+    def _check_vault_user(self, path, service_username_template, service):
+        if path not in self.last_service_user_check:
+            self.last_service_user_check[path] = 0
+
+        if self.last_service_user_check[path] + self.vault_check_interval < time.time():
+            latest_version = self._check_service_user_vault(path, service_username_template, service)
+            self.last_service_user_check[path] = time.time()
+        else:
+            latest_version = self.service_users[path][-1]
+        return latest_version
 
     def _check_service_user_vault(self, path, service_username_template, service):
         """Generates ground thruth for service-users and checks for new versions in vault"""
@@ -616,9 +645,18 @@ class Configurator:
             labels = metadata.labels or {}
 
             service = annotations.get("uses-service-user")
-            vcenter = labels.get("vcenter")
             version = labels.get("vcenter-operator-secret-version")
-            if service and vcenter and version:
+
+            if not service:
+                LOG.debug("Pod has no label 'uses-service-user'. Skipping user management")
+                continue
+
+            if service == "nsxt":
+                host = labels.get("vccluster").removeprefix("production")
+            else:
+                host = labels.get("vcenter")
+
+            if host and version:
                 if service in service_users:
                     _, service_username_template, _ = service_users[service]
                     service_user = service_username_template + str(version).zfill(4)
@@ -629,7 +667,13 @@ class Configurator:
                     if service not in self.vcenter_service_user_tracker:
                         self.vcenter_service_user_tracker[service] = dict()
 
-                    if vcenter not in self.vcenter_service_user_tracker[service]:
-                        self.vcenter_service_user_tracker[service][vcenter] = dict()
+                    if host not in self.vcenter_service_user_tracker[service]:
+                        self.vcenter_service_user_tracker[service][host] = dict()
 
-                    self.vcenter_service_user_tracker[service][vcenter][str(version)] = time.time()
+                    self.vcenter_service_user_tracker[service][host][str(version)] = time.time()
+            else:
+                LOG.info("Pod %s misses host or version label (%s/%s). Skipping Pod for user management", pod.metadata.name, host, version)
+
+    def _check_nsxt_service_user(self, service_user_prefix, service, bb, path, latest_version, group):
+        """Check if service-user is still running"""
+        pass

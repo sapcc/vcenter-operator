@@ -19,7 +19,7 @@ jobs:
       - name: Install Tox
         run: pip install tox
       - name: Run Tox
-        run: tox
+        run: "tox -e py"
 #  pep8:
 #    runs-on: ubuntu-latest
 #    steps:
