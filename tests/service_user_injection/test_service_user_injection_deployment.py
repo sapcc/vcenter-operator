@@ -7,6 +7,10 @@ from vcenter_operator.phelm import DeploymentState, ServiceUserNotFoundError, Se
 from vcenter_operator.templates import _ini_quote
 
 
+SPEC = {"spec": {"service": None}}
+NAMESPACE = "abcde"
+K8S_RESOURCEVERSION = -100
+
 @pytest.fixture
 def state():
     """Fixture to create a DeploymentState instance"""
@@ -57,7 +61,7 @@ def test_inject_user_info(state, jinja_env):
         "region": "test_region",
         "host": "test_vcenter",
     }
-    service_user_crds = {"testservice": {}}
+    service_user_crds = {"testservice": (K8S_RESOURCEVERSION, SPEC, NAMESPACE)}
     jinja2_options = {"uses-service-user": "testservice"}
 
     result = state._inject_service_user_info_and_render(
@@ -93,7 +97,7 @@ def test_inject_user_info_vault_version_missing(state, jinja_env):
         "region": "test_region",
         "host": "test_vcenter",
     }
-    service_user_crds = {"testservice": {}}
+    service_user_crds = {"testservice": (K8S_RESOURCEVERSION, SPEC, NAMESPACE)}
     jinja2_options = {"uses-service-user": "testservice"}
 
     result = state._inject_service_user_info_and_render(
@@ -132,7 +136,7 @@ def test_inject_user_info_vault_2(state, jinja_env):
         "region": "test_region",
         "host": "test_vcenter",
     }
-    service_user_crds = {"testservice": {}}
+    service_user_crds = {"testservice": (K8S_RESOURCEVERSION, SPEC, NAMESPACE)}
     jinja2_options = {"uses-service-user": "testservice"}
 
     result = state._inject_service_user_info_and_render(
@@ -173,7 +177,7 @@ def test_not_inject_user_info(state, jinja_env):
         "password": "testpassword",
         "host": "test_vcenter",
     }
-    service_user_crds = {"testservice": {}}
+    service_user_crds = {"testservice": (K8S_RESOURCEVERSION, SPEC, NAMESPACE)}
     jinja2_options = {"uses-service-user": "testservice"}
 
     result = state._inject_service_user_info_and_render(
@@ -207,7 +211,7 @@ def test_inject_user_info_no_service_user(state, jinja_env):
         "region": "test_region",
         "host": "test_vcenter",
     }
-    service_user_crds = {"testservice": {}}
+    service_user_crds = {"testservice": (K8S_RESOURCEVERSION, SPEC, NAMESPACE)}
     jinja2_options = {"uses-service-user": "testservice"}
 
     # This should raise service user not found error
