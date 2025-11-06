@@ -1,1 +1,2 @@
 pytest
+stestr>=1.0.0 # Apache-2.0
