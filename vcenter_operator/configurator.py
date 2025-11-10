@@ -684,8 +684,9 @@ class Configurator:
     def _check_nsxt_service_user(self, service_user_prefix, service, region, bb, path, latest_version, management_user, role):
         """Check if service-user is still running"""
         current_username = service_user_prefix + str(latest_version).zfill(4)
+        dry_run = self.global_options.get('dry_run', "False") == 'True'
         nsxt = NsxtUserAPIHelper(user=management_user["username"], password=management_user["password"],
-                                 bb=bb, region=region)
+                                 bb=bb, region=region, dry_run=dry_run)
 
         try:
             active_users = nsxt.list_users(prefix=service_user_prefix)

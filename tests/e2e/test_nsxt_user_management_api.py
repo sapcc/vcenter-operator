@@ -22,7 +22,7 @@ def user_api():
     region = os.getenv('NSXT_REGION')
     LOG.info(f"connecting to {bb} in region {region} with {user}")
 
-    return NsxtUserAPIHelper(user, password, bb, region)
+    return NsxtUserAPIHelper(user, password, bb, region, dry_run=False)
 
 
 @pytest.fixture

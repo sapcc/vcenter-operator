@@ -25,7 +25,7 @@ class NSXTSkippedError(Exception):
     pass
 
 class NsxtLoginHelper():
-    def __init__(self, dry_run=False, user=None, password=None, bb=None, region=None, verify_ssl=False):
+    def __init__(self, user=None, password=None, bb=None, region=None, verify_ssl=False, dry_run=False):
         self.dry_run = dry_run
         self.user = user
         self.password = password
@@ -198,8 +198,9 @@ class User():
 
 
 class NsxtUserAPIHelper(NsxtLoginHelper):
-    def __init__(self, user, password, bb, region):
-        super(NsxtUserAPIHelper, self).__init__(dry_run=False, user=user, password=password, bb=bb, region=region)
+    def __init__(self, user, password, bb, region, dry_run):
+        super(NsxtUserAPIHelper, self).__init__(user=user, password=password, bb=bb, region=region,
+                                                verify_ssl=False, dry_run=False)
 
     def get_user_role_mapping(self, user_group_name):
         "Fetch role mapping for the given username or group name"
@@ -242,6 +243,10 @@ class NsxtUserAPIHelper(NsxtLoginHelper):
         return [u["username"] for u in users if u["username"].startswith(prefix)]
 
     def check_users_in_group(self, user, groups):
+        if self.dry_run:
+            LOG.debug("Dry run, Assuming user is in groups")
+            return True
+
         if isinstance(user, str):
             curr_user = self.get_user_role_mapping(user)
         else:
@@ -257,6 +262,10 @@ class NsxtUserAPIHelper(NsxtLoginHelper):
         return self.get(self.gen_fullpath(path))
 
     def add_user_to_group(self, username, groupname):
+        if self.dry_run:
+            LOG.debug("Dry run, not adding user {} to group {}".format(username, groupname))
+            return True
+
         user = self.get_user_role_mapping(username)
 
         if self.check_users_in_group(user, groupname):
@@ -286,6 +295,10 @@ class NsxtUserAPIHelper(NsxtLoginHelper):
         return True
 
     def create_service_user(self, username, password):
+        if self.dry_run:
+            LOG.debug("Dry run, not creating service user {}".format(username))
+            return
+
         path = "api/v1/node/users"
 
         user = {
@@ -303,6 +316,10 @@ class NsxtUserAPIHelper(NsxtLoginHelper):
         return True
 
     def delete_service_user(self, username):
+        if self.dry_run:
+            LOG.debug("Dry run, not deleting {}".format(username))
+            return
+
         path = "api/v1/node/users/{}"
         user = self.get_user_role_mapping(username)
         self.delete(self.gen_fullpath(path.format(user.id)))
