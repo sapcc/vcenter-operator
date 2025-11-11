@@ -39,10 +39,10 @@ def test_user_expired_1(configurator):
 
     configurator._check_service_user_vault("test_path", "test_service_user_template", "test_service")
 
-    expected_calls = [call("test_path", read=False), call("test_path", read=True)]
+    expected_calls = [call("test_path", read=False, service="test_service"), call("test_path", read=True)]
     assert configurator.vault.get_metadata.call_args_list == expected_calls
     configurator.vault.create_service_user.assert_called_once_with(
-        "test_service_user_template", "test_path", "test_service", "3"
+        "test_service_user_template", "test_path", "test_service", "3",
     )
 
     assert configurator.service_users["test_path"] == ["1", "2", "3", "4"]
@@ -67,7 +67,7 @@ def test_user_expired_2(configurator):
     configurator.vault.create_service_user.return_value = ("5", "test_service_user", "test_password")
 
     configurator._check_service_user_vault("test_path", "test_service_user_template", "test_service")
-    expected_calls = [call("test_path", read=False), call("test_path", read=True)]
+    expected_calls = [call("test_path", read=False, service="test_service"), call("test_path", read=True)]
     assert configurator.vault.get_metadata.call_args_list == expected_calls
     configurator.vault.create_service_user.assert_called_once_with(
         "test_service_user_template", "test_path", "test_service", "4"
@@ -97,7 +97,7 @@ def test_user_expired_3(configurator):
     configurator.vault.create_service_user.return_value = ("6", "test_service_user", "test_password")
 
     configurator._check_service_user_vault("test_path", "test_service_user_template", "test_service")
-    expected_calls = [call("test_path", read=False), call("test_path", read=True)]
+    expected_calls = [call("test_path", read=False, service="test_service"), call("test_path", read=True)]
     assert configurator.vault.get_metadata.call_args_list == expected_calls
     configurator.vault.create_service_user.assert_called_once_with(
         "test_service_user_template", "test_path", "test_service", "5"
@@ -126,7 +126,7 @@ def test_user_not_expired_1(configurator):
     configurator.service_users = {"test_path": ["4", "5"]}
 
     configurator._check_service_user_vault("test_path", "test_service_user_template", "test_service")
-    expected_calls = [call("test_path", read=False), call("test_path", read=True)]
+    expected_calls = [call("test_path", read=False, service="test_service"), call("test_path", read=True)]
     assert configurator.vault.get_metadata.call_args_list == expected_calls
     configurator.vault.create_service_user.assert_not_called()
 
