@@ -72,6 +72,10 @@ mount_point_write
     The name of the part of the Vault service to write secrets to
     Secrets get replicated from this mount point to the `mount_point_read`
 
+mount_point_write_nsxt
+    The name of the part of the Vault service to write nsxt secrets to
+    Secrets get replicated from this mount point to the `mount_point_read`
+
 max_time_not_seen
     The maximum time in seconds that a service-user version was not seen as label at any Pod
     Makes sure only service-users get deleted that are not used anymore
