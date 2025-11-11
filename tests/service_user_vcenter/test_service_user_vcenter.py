@@ -23,7 +23,7 @@ def configurator():
 
 def test_service_user_all_missing(configurator):
     """Test check_service_user_vcenter function with no service-user info in tracker"""
-
+    cr_name = "test_cr_name"
     configurator.vcenter_sso.list_service_users.return_value = ["randmom_user"]
     configurator.vault.get_secret.return_value = {
         "username": "test_service_user_template0001",
@@ -32,22 +32,22 @@ def test_service_user_all_missing(configurator):
     configurator.vcenter_sso.create_service_user.return_value = None
 
     configurator._check_service_user_vcenter(
-        "test_service_user_template", "test_service", "test_host", "test_path", "1"
+        "test_service_user_template", cr_name, "test_service", "test_host", "test_path", "1"
     )
 
     configurator.vcenter_sso.list_service_users.called_once_with("test_host", "test_service_user_template")
 
-    assert "test_host" in configurator.vcenter_service_user_tracker["test_service"]
-    assert "1" in configurator.vcenter_service_user_tracker["test_service"]["test_host"]
+    assert "test_host" in configurator.vcenter_service_user_tracker[cr_name]
+    assert "1" in configurator.vcenter_service_user_tracker[cr_name]["test_host"]
     assert (
-        configurator.vcenter_service_user_tracker["test_service"]["test_host"]["1"]
+        configurator.vcenter_service_user_tracker[cr_name]["test_host"]["1"]
         < time.time()
     )
 
 
 def test_service_user_missing_vcenter(configurator):
     """Test check_service_user_vcenter function with service-user missing in tracker"""
-
+    cr_name = "test_cr_name"
     configurator.vcenter_sso.list_service_users.return_value = ["randmom_user"]
     configurator.vault.get_secret.return_value = {
         "username": "test_service_user_template0001",
@@ -55,25 +55,25 @@ def test_service_user_missing_vcenter(configurator):
     }
     configurator.vcenter_sso.create_service_user.return_value = None
 
-    configurator.vcenter_service_user_tracker = {"test_service": {"test_host": {}}}
+    configurator.vcenter_service_user_tracker = {cr_name: {"test_host": {}}}
 
     configurator._check_service_user_vcenter(
-        "test_service_user_template", "test_service", "test_host", "test_path", "1"
+        "test_service_user_template", cr_name,"test_service", "test_host", "test_path", "1"
     )
 
     configurator.vcenter_sso.list_service_users.called_once_with("test_host", "test_service_user_template")
 
-    assert "test_host" in configurator.vcenter_service_user_tracker["test_service"]
-    assert "1" in configurator.vcenter_service_user_tracker["test_service"]["test_host"]
+    assert "test_host" in configurator.vcenter_service_user_tracker[cr_name]
+    assert "1" in configurator.vcenter_service_user_tracker[cr_name]["test_host"]
     assert (
-        configurator.vcenter_service_user_tracker["test_service"]["test_host"]["1"]
+        configurator.vcenter_service_user_tracker[cr_name]["test_host"]["1"]
         < time.time()
     )
 
 
 def test_service_user_missing_state(configurator):
     """Test check_service_user_vcenter function with service-user in tracker"""
-
+    cr_name = "test_cr_name"
     configurator.vcenter_sso.list_service_users.return_value = ["test_service_user_template0001"]
     configurator.vault.get_secret.return_value = {
         "username": "test_service_user_template0001",
@@ -86,18 +86,18 @@ def test_service_user_missing_state(configurator):
     configurator.vcenter_service_user_tracker = {}
 
     configurator._check_service_user_vcenter(
-        "test_service_user_template", "test_service", "test_host", "test_path", "1"
+        "test_service_user_template", cr_name, "test_service", "test_host", "test_path", "1"
     )
 
     configurator.vcenter_sso.list_service_users.called_once_with("test_host", "test_service_user_template")
 
-    assert "test_host" in configurator.vcenter_service_user_tracker["test_service"]
-    assert "1" in configurator.vcenter_service_user_tracker["test_service"]["test_host"]
+    assert "test_host" in configurator.vcenter_service_user_tracker[cr_name]
+    assert "1" in configurator.vcenter_service_user_tracker[cr_name]["test_host"]
     assert (
-        configurator.vcenter_service_user_tracker["test_service"]["test_host"]["1"]
+        configurator.vcenter_service_user_tracker[cr_name]["test_host"]["1"]
         > time_last_seen
     )
     assert (
-        configurator.vcenter_service_user_tracker["test_service"]["test_host"]["1"]
+        configurator.vcenter_service_user_tracker[cr_name]["test_host"]["1"]
         < time.time()
     )

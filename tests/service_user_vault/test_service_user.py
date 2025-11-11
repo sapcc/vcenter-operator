@@ -26,9 +26,9 @@ def test_user_not_in_vault(configurator):
     configurator.vault.get_metadata.return_value = None
     configurator.vault.create_service_user.return_value = ("1", "test_service_user", "test_password")
 
-    configurator._check_service_user_vault("test_path", "test_service_user_template", "test_service")
+    configurator._check_service_user_vault("test_path", "test_service_user_template", "cr_name", "test_service")
 
-    expected_calls = [call("test_path", read=False)]
+    expected_calls = [call("test_path", read=False, service_type="test_service")]
     assert configurator.vault.get_metadata.call_args_list == expected_calls
     configurator.vault.create_service_user.assert_called_once_with(
         "test_service_user_template", "test_path", "test_service"
@@ -54,12 +54,12 @@ def test_user_not_in_state(configurator):
 
     configurator.service_users = {}
     configurator.vault.check_and_update_username_if_neccessary.return_value = "3"
-    configurator._check_service_user_vault("test_path", "test_service_user_template", "test_service")
+    configurator._check_service_user_vault("test_path", "test_service_user_template", "cr_name", "test_service")
 
-    expected_calls = [call("test_path", read=False), call("test_path", read=True)]
+    expected_calls = [call("test_path", read=False, service_type="test_service"), call("test_path", read=True)]
     assert configurator.vault.get_metadata.call_args_list == expected_calls
     configurator.vault.check_and_update_username_if_neccessary.assert_called_once_with(
-        "test_path", "test_service", "test_service_user_template")
+        "test_path", "cr_name", "test_service", "test_service_user_template")
 
     assert configurator.service_users["test_path"] == ["3"]
 
@@ -79,9 +79,9 @@ def test_user_valid(configurator):
     }
     configurator.service_users = {"test_path": ["1", "2", "3"]}
 
-    configurator._check_service_user_vault("test_path", "test_service_user_template", "test_service")
+    configurator._check_service_user_vault("test_path", "test_service_user_template", "cr_name","test_service")
 
-    expected_calls = [call("test_path", read=False), call("test_path", read=True)]
+    expected_calls = [call("test_path", read=False, service_type="test_service"), call("test_path", read=True)]
     assert configurator.vault.get_metadata.call_args_list == expected_calls
     configurator.vault.check_and_update_username_if_neccessary.assert_not_called()
     configurator.vault.create_service_user.assert_not_called()

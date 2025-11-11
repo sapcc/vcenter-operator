@@ -26,7 +26,7 @@ class Vault:
         self.dry_run = dry_run
         self.vault_url = None
         self.mount_point_read = None
-        self.mount_point_write = None
+        self.mount_point_write = {}
         self.token = None
         self.next_renew = None
         self.approle = None
@@ -63,9 +63,9 @@ class Vault:
         """Set the mount point to read from for vault instance"""
         self.mount_point_read = mount_point_read
 
-    def set_mount_point_write(self, mount_point_write):
+    def set_mount_point_write(self, mount_point, service="default"):
         """Set the mount point to read from for vault instance"""
-        self.mount_point_write = mount_point_write
+        self.mount_point_write[service] = mount_point
 
     def set_password_constraints(self, password_constraints):
         """Set the password constraints for vault instance"""
@@ -111,7 +111,7 @@ class Vault:
         """Get the secret from vault"""
 
         headers = self._get_headers()
-        resp = requests.get(f"{self.vault_url}/v1/{self.mount_point_read}/data/{path}", headers=headers)
+        resp = requests.get(f"{self.vault_url}/v1/{self.get_mountpoint(read=True)}/data/{path}", headers=headers)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -124,13 +124,32 @@ class Vault:
 
         return resp.json().get("data", {}).get("data")
 
+    def get_mountpoint(self, read, service_type=None):
+        if read:
+            return self.mount_point_read
+
+        mp = None
+        if service_type:
+            mp = self.mount_point_write.get(service_type)
+        return mp or self.mount_point_write["default"]
+
+    def get_support_group(self, service_type=None):
+        if service_type == "nsxt":
+            return "network-api"
+        return "compute-storage-api"
+
+    def get_access_group(self, service_type):
+        if service_type == "nsxt":
+            return service_type
+        return "vcenter"
+
     @require_vault_parameters
-    def get_metadata(self, path, read=False):
+    def get_metadata(self, path, read=False, service_type=None):
         """Get the metadata of the secret"""
 
-        mount = self.mount_point_read if read else self.mount_point_write
+        mount_point = self.get_mountpoint(read, service_type)
         headers = self._get_headers()
-        resp = requests.get(f"{self.vault_url}/v1/{mount}/metadata/{path}", headers=headers)
+        resp = requests.get(f"{self.vault_url}/v1/{mount_point}/metadata/{path}", headers=headers)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -144,7 +163,7 @@ class Vault:
         return resp.json()
 
     @require_vault_parameters
-    def create_service_user(self, username_template, path, cr_name, last_version=None):
+    def create_service_user(self, username_template, path, service_type, last_version=None):
         """Create the service-user"""
 
         # Initial username starting with 0001 (version 1)
@@ -161,9 +180,9 @@ class Vault:
             LOG.debug("Dry-run: Would have created service-user")
             return "1", username, password
 
-        version = self.store_service_user_credentials(username, password, path, cr_name)
+        version = self.store_service_user_credentials(username, password, path, service_type)
 
-        self.trigger_replicate(path)
+        self.trigger_replicate(path, service_type)
 
         return version, username, password
 
@@ -207,11 +226,12 @@ class Vault:
         return True
 
     @require_vault_parameters
-    def trigger_replicate(self, path):
+    def trigger_replicate(self, path, service_type=None):
         """Trigger the replication of a secret in vault"""
         headers = self._get_headers()
+        mount = self.get_mountpoint(read=False, service_type=service_type)
         data = {
-            "mount": self.mount_point_write,
+            "mount": mount,
             "path": path,
         }
         resp = requests.post(f"{self.vault_url}/v1/gen/replicate", json=data, headers=headers)
@@ -222,7 +242,7 @@ class Vault:
         resp.raise_for_status()
 
     @require_vault_parameters
-    def store_service_user_credentials(self, username, password, path, cr_name):
+    def store_service_user_credentials(self, username, password, path, service_type):
         """Stores the service-user credentials in vault"""
 
         headers = self._get_headers()
@@ -236,8 +256,8 @@ class Vault:
         if self.dry_run:
             LOG.debug("Dry-run: Would have created service-user")
             return "1"
-
-        resp = requests.post(f"{self.vault_url}/v1/{self.mount_point_write}/data/{path}", json=data, headers=headers)
+        mount_point_write = self.get_mountpoint(read=False, service_type=service_type)
+        resp = requests.post(f"{self.vault_url}/v1/{mount_point_write}/data/{path}", json=data, headers=headers)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -248,20 +268,20 @@ class Vault:
 
         metadata = {
             "custom_metadata": {
-                "accessed_resource": cr_name,
+                "accessed_resource": self.get_access_group(service_type),
                 "application_criticallity": "high",
                 "expiry_date": (datetime.now() + timedelta(days=EXPIRY_DAYS)).strftime("%Y-%m-%d"),
                 "owner": "vcenter-operator",
                 "review_date": datetime.now().strftime("%Y-%m-%d"),
-                "support_group": "compute-storage-api",
+                "support_group": self.get_support_group(service_type),
                 "type": "secret",
                 "username": username,
-                "replica_dest_secrets": f"{self.mount_point_read}, {path}"
+                "replica_dest_secrets": f"{self.get_mountpoint(read=True, service_type=service_type)}, {path}"
             }
         }
 
         resp = requests.post(
-            f"{self.vault_url}/v1/{self.mount_point_write}/metadata/{path}", json=metadata, headers=headers)
+            f"{self.vault_url}/v1/{mount_point_write}/metadata/{path}", json=metadata, headers=headers)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -271,7 +291,7 @@ class Vault:
         return version
 
     @require_vault_parameters
-    def check_and_update_username_if_neccessary(self, path, cr_name, service_username_template):
+    def check_and_update_username_if_neccessary(self, path, cr_name, service_type, service_username_template):
         """Check if the username is still valid after rotation and update the username if necessary"""
 
         service_user_data = self.get_service_user_data(path)
@@ -293,7 +313,7 @@ class Vault:
 
         LOG.info("Need to update username and password for service %s", cr_name)
 
-        version = self.store_service_user_credentials(username, password, path, cr_name)
+        version = self.store_service_user_credentials(username, password, path, service_type)
         return version
 
     @require_vault_parameters
@@ -301,7 +321,7 @@ class Vault:
         """Get the service-user data from vault"""
 
         headers = self._get_headers()
-        resp = requests.get(f"{self.vault_url}/v1/{self.mount_point_read}/data/{path}", headers=headers)
+        resp = requests.get(f"{self.vault_url}/v1/{self.get_mountpoint(read=True)}/data/{path}", headers=headers)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()

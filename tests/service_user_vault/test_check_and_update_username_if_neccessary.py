@@ -39,7 +39,8 @@ def test_valid_name(vault):
         "metadata": {"version": "3"},
     }
 
-    version = vault.check_and_update_username_if_neccessary("test_path", "test_service", "test_service_user")
+    version = vault.check_and_update_username_if_neccessary("test_path", "sample_cr_name",
+                                                            "test_service", "test_service_user")
 
     assert version == "3"
 
@@ -58,7 +59,8 @@ def test_invalid_name(vault):
     vault.store_service_user_credentials.return_value = "5"
     vault.gen_password.return_value = "test_p4ssword/"
 
-    version = vault.check_and_update_username_if_neccessary("test_path", "test_service", "test_service_user")
+    version = vault.check_and_update_username_if_neccessary("test_path", "sample_cr_name",
+                                                            "test_service", "test_service_user")
 
 
     assert version == "5"

@@ -32,6 +32,7 @@ class TestNsxtServiceUserManagement(unittest.TestCase):
         service_user_prefix = "userprefix"
         latest_version = "0002"
         service = "nsxt"
+        cr_name = "exporter"
         bb = "bb085"
         region = "qa-de-1"
         path = f"{service}/{bb}"
@@ -48,16 +49,16 @@ class TestNsxtServiceUserManagement(unittest.TestCase):
         fn_add_usergroup.return_value = True
         fn_connect.return_value = True
 
-        self.configurator._check_service_user_nsxt(service_user_prefix, service, region, bb, path, latest_version,
-                                              management_user_secret, group)
+        self.configurator._check_service_user_nsxt(service_user_prefix, cr_name, service, region, bb, path,
+                                                   latest_version, management_user_secret, group)
 
         fn_list.assert_called_with(prefix=service_user_prefix)
         fn_create_user.assert_called_with(f"{service_user_prefix}{latest_version}", "test_password")
         fn_add_usergroup.assert_called_with(f"{service_user_prefix}{latest_version}", group)
-        assert bb in self.configurator.vcenter_service_user_tracker[service]
-        assert "2" in self.configurator.vcenter_service_user_tracker[service][bb]
+        assert bb in self.configurator.vcenter_service_user_tracker[cr_name]
+        assert "2" in self.configurator.vcenter_service_user_tracker[cr_name][bb]
         assert (
-            self.configurator.vcenter_service_user_tracker[service][bb]["2"]
+            self.configurator.vcenter_service_user_tracker[cr_name][bb]["2"]
             < time.time()
         )
 
@@ -74,13 +75,14 @@ class TestNsxtServiceUserManagement(unittest.TestCase):
         service_user_prefix = "userprefix"
         latest_version = "2"
         service = "nsxt"
+        cr_name = "exporter"
         bb = "bb085"
         region = "qa-de-1"
         path = f"{service}/{bb}"
         group = "blabbla"
 
         self.configurator.vcenter_service_user_tracker = {
-            service: {bb: {
+            cr_name: {bb: {
                 "1": 0,
                 "2": 0
             }}
@@ -89,9 +91,9 @@ class TestNsxtServiceUserManagement(unittest.TestCase):
         fn_list.return_value = [f"{service_user_prefix}{latest_version.zfill(4)}", f"{service_user_prefix}001"]
         fn_user_group.return_value = True
         fn_delete.return_value = True
-        self.configurator._check_service_user_nsxt(service_user_prefix, service, region, bb, path, latest_version,
-                                              management_user_secret, group)
+        self.configurator._check_service_user_nsxt(service_user_prefix, cr_name, service, region, bb,
+                                                   path, latest_version, management_user_secret, group)
 
         # Stale entry should be removed
-        assert "1" not in self.configurator.vcenter_service_user_tracker[service][bb].keys(), \
+        assert "1" not in self.configurator.vcenter_service_user_tracker[cr_name][bb].keys(), \
             "Expected user version '1' to be deleted"
