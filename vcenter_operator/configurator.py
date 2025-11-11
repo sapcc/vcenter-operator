@@ -332,6 +332,11 @@ class Configurator:
                 self.global_options.update(mount_point_write=mount_point_write)
                 self.vault.set_mount_point_write(mount_point_write)
 
+            mount_point_write_nsxt = b64decode(secret.data.pop('mount_point_write_nsxt', ""))
+            if mount_point_write_nsxt and self.global_options.get('mount_point_write_nsxt') != mount_point_write_nsxt:
+                self.global_options.update(nsxt_mount_point_write=mount_point_write_nsxt)
+                self.vault.set_mount_point_write(mount_point_write_nsxt, service="nsxt")
+
             approle = {"role_id": role_id, "secret_id": secret_id}
             if self.global_options.get('approle') != approle and role_id != "" and secret_id != "":
                 self.global_options.update(approle=approle)
@@ -467,6 +472,7 @@ class Configurator:
                     management_user_path = "{}/compute/nsxt/nsx-ctl-1-{}.cc.{}.cloud.sap/nsxt-shell".format(
                         self.global_options['region'], bb_name, self.global_options['region'])
                     try:
+                        # Fetch from default path
                         management_user = self.vault.get_secret(management_user_path)
                     except Exception:
                         msg = f"NSXT: Not able to fetch management user for nsxt shell user {management_user_path}"
@@ -479,10 +485,11 @@ class Configurator:
                     path = f"{self.global_options['region']}/vcenter-operator/{service}/{bb_name}"
                     LOG.info("NSXT: Check service user %s %s %s", path, service_username_template, service)
 
-                    latest_version = self._check_vault_user(path, service_username_template, service)
+                    mount_point_name = self.global_options["nsxt_mount_point_write"]
+                    latest_version = self._check_vault_user(path, service_username_template, service, mount_point_name)
                     self._check_nsxt_service_user(service_username_template, service, self.global_options['region'], bb_name, path, latest_version,
                                                   management_user,
-                                                  role="enterprise_admin")
+                                                  role="enterprise_admin", mount_point_name=mount_point_name)
                 continue
             # host: {name}.{domain}
             vcenter_name = host.split('.')[0]
@@ -491,12 +498,12 @@ class Configurator:
             latest_version = self._check_vault_user(path, service_username_template, service)
             self._check_service_user_vcenter(service_username_template, service, host, path, latest_version)
 
-    def _check_vault_user(self, path, service_username_template, service):
+    def _check_vault_user(self, path, service_username_template, service, mount_point_name=None):
         if path not in self.last_service_user_check:
             self.last_service_user_check[path] = 0
 
         if self.last_service_user_check[path] + self.vault_check_interval < time.time():
-            latest_version = self._check_service_user_vault(path, service_username_template, service)
+            latest_version = self._check_service_user_vault(path, service_username_template, service, mount_point_name)
             self.last_service_user_check[path] = time.time()
         else:
             latest_version = self.service_users[path][-1]
@@ -505,7 +512,7 @@ class Configurator:
     def _check_service_user_vault(self, path, service_username_template, service):
         """Generates ground thruth for service-users and checks for new versions in vault"""
         LOG.debug("Checking service-user under path %s in vault", path)
-        metadata_write = self.vault.get_metadata(path, read=False)
+        metadata_write = self.vault.get_metadata(path, read=False, service=service)
 
         # Create service_user in vault, if not exists
         if not metadata_write:
@@ -513,12 +520,12 @@ class Configurator:
             latest_version, _, _ = self.vault.create_service_user(service_username_template, path, service)
             self.service_users[path] = [latest_version]
             return latest_version
-
+        # No need to pass service here, as there is only one read mount point
         metadata_read = self.vault.get_metadata(path, read=True)
         # Check if replicated
         if not metadata_read:
             LOG.info("Service-user in vault is not replicated - triggering replication")
-            self.vault.trigger_replicate(path)
+            self.vault.trigger_replicate(path, service)
             raise VaultSecretNotReplicatedError()
 
         # Check if metadata is up to date
@@ -534,7 +541,7 @@ class Configurator:
         )
         if latest_version_write > latest_version_read:
             LOG.warning("Service-user of path %s in vault is not up to date - triggering replication", path)
-            self.vault.trigger_replicate(path)
+            self.vault.trigger_replicate(path, service)
             raise VaultSecretNotReplicatedError()
 
         latest_version = str(latest_version_read)
@@ -591,7 +598,7 @@ class Configurator:
             secret = self.vault.get_secret(path)
             if secret["username"] != current_username:
                 LOG.warning("Username in vault does not match the current username")
-                self.vault.trigger_replicate(path)
+                self.vault.trigger_replicate(path, mount_point_name)
                 raise VaultSecretNotReplicatedError()
 
             self.vcenter_sso.create_service_user(host, secret["username"], secret["password"], service)
@@ -681,7 +688,7 @@ class Configurator:
             else:
                 LOG.info("Pod %s misses host or version label (%s/%s). Skipping Pod for user management", pod.metadata.name, host, version)
 
-    def _check_nsxt_service_user(self, service_user_prefix, service, region, bb, path, latest_version, management_user, role):
+    def _check_nsxt_service_user(self, service_user_prefix, service, region, bb, path, latest_version, management_user, role, mount_point_name):
         """Check if service-user is still running"""
         current_username = service_user_prefix + str(latest_version).zfill(4)
         dry_run = self.global_options.get('dry_run', "False") == 'True'
@@ -709,7 +716,7 @@ class Configurator:
 
             if secret['username'] != current_username:
                 LOG.warning("NSXT service-user in vault does not match the current username")
-                self.vault.trigger_replicate(path)
+                self.vault.trigger_replicate(path, mount_point_name)
                 raise VaultSecretNotReplicatedError
 
             try:

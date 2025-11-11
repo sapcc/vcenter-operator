@@ -26,7 +26,7 @@ class Vault:
         self.dry_run = dry_run
         self.vault_url = None
         self.mount_point_read = None
-        self.mount_point_write = None
+        self.mount_point_write = {}
         self.token = None
         self.next_renew = None
         self.approle = None
@@ -63,9 +63,9 @@ class Vault:
         """Set the mount point to read from for vault instance"""
         self.mount_point_read = mount_point_read
 
-    def set_mount_point_write(self, mount_point_write):
+    def set_mount_point_write(self, mount_point, service="default"):
         """Set the mount point to read from for vault instance"""
-        self.mount_point_write = mount_point_write
+        self.mount_point_write[service] = mount_point
 
     def set_password_constraints(self, password_constraints):
         """Set the password constraints for vault instance"""
@@ -124,11 +124,21 @@ class Vault:
 
         return resp.json().get("data", {}).get("data")
 
+    def get_mountpoint(self, read, service=None):
+        if read:
+            return self.mount_point_read
+
+        mp = None
+        if service:
+            mp = self.mount_point_write.get(service)
+        return mp or self.mount_point_write["default"]
+
+
     @require_vault_parameters
-    def get_metadata(self, path, read=False):
+    def get_metadata(self, path, read=False, service=None):
         """Get the metadata of the secret"""
 
-        mount = self.mount_point_read if read else self.mount_point_write
+        mount = self.get_mountpoint(read, service)
         headers = self._get_headers()
         resp = requests.get(f"{self.vault_url}/v1/{mount}/metadata/{path}", headers=headers)
 
@@ -163,7 +173,7 @@ class Vault:
 
         version = self.store_service_user_credentials(username, password, path, service)
 
-        self.trigger_replicate(path)
+        self.trigger_replicate(path, service)
 
         return version, username, password
 
@@ -207,11 +217,12 @@ class Vault:
         return True
 
     @require_vault_parameters
-    def trigger_replicate(self, path):
+    def trigger_replicate(self, path, service=None):
         """Trigger the replication of a secret in vault"""
         headers = self._get_headers()
+        mount = self.get_mountpoint(read=False, service=service)
         data = {
-            "mount": self.mount_point_write,
+            "mount": mount,
             "path": path,
         }
         resp = requests.post(f"{self.vault_url}/v1/gen/replicate", json=data, headers=headers)
@@ -236,8 +247,8 @@ class Vault:
         if self.dry_run:
             LOG.debug("Dry-run: Would have created service-user")
             return "1"
-
-        resp = requests.post(f"{self.vault_url}/v1/{self.mount_point_write}/data/{path}", json=data, headers=headers)
+        mount = self.get_mountpoint(read=False, service=service)
+        resp = requests.post(f"{self.vault_url}/v1/{mount}/data/{path}", json=data, headers=headers)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -261,7 +272,7 @@ class Vault:
         }
 
         resp = requests.post(
-            f"{self.vault_url}/v1/{self.mount_point_write}/metadata/{path}", json=metadata, headers=headers)
+            f"{self.vault_url}/v1/{mount}/metadata/{path}", json=metadata, headers=headers)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()

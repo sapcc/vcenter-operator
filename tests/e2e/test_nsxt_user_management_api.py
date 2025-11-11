@@ -88,6 +88,7 @@ def test_check_nst_service_user(delete_user, user_api, configurator):
     path = "random/region/stuff"
     # must be nsxt
     service = "nsxt"
+    mount_point_name = "secret"
 
     configurator.vault.get_secret.return_value = {
         "username": f"{user_prefix}{latest_version.zfill(4)}",
@@ -100,4 +101,5 @@ def test_check_nst_service_user(delete_user, user_api, configurator):
     }
 
     configurator._check_nsxt_service_user(user_prefix, service, region, bb, path,
-                                          latest_version, management_user, USERGROUP)
+                                          latest_version, management_user, USERGROUP,
+                                          mount_point_name)

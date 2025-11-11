@@ -37,6 +37,7 @@ def test_service_user_missing_in_nsxt(fn_user_group, fn_list, fn_create_user, fn
     region = "qa-de-1"
     path = f"{service}/{bb}"
     group = "blabbla"
+    mount_point_name = "secrets"
 
     configurator = create_configurator()
     configurator.vault.get_secret.return_value = {
@@ -48,9 +49,10 @@ def test_service_user_missing_in_nsxt(fn_user_group, fn_list, fn_create_user, fn
     fn_user_group.return_value = True
     fn_create_user.return_value = True
     fn_add_usergroup.return_value = True
+    fn_connect.return_value = True
 
     configurator._check_nsxt_service_user(service_user_prefix, service, region, bb, path, latest_version,
-                                          management_user_secret, group)
+                                          management_user_secret, group, mount_point_name)
 
     fn_list.assert_called_with(prefix=service_user_prefix)
     fn_create_user.assert_called_with(f"{service_user_prefix}{latest_version}", "test_password")
@@ -79,6 +81,7 @@ def test_stale_service_user(fn_user_group, fn_list, fn_delete):
     region = "qa-de-1"
     path = f"{service}/{bb}"
     group = "blabbla"
+    mount_point_name = "secrets"
 
     configurator = create_configurator()
     configurator.vcenter_service_user_tracker = {
@@ -92,7 +95,7 @@ def test_stale_service_user(fn_user_group, fn_list, fn_delete):
     fn_user_group.return_value = True
     fn_delete.return_value = True
     configurator._check_nsxt_service_user(service_user_prefix, service, region, bb, path, latest_version,
-                                          management_user_secret, group)
+                                          management_user_secret, group, mount_point_name)
 
     # Stale entry should be removed
     assert "1" not in configurator.vcenter_service_user_tracker[service][bb].keys(), \
