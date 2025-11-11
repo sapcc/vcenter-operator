@@ -26,7 +26,7 @@ def test_service_user_not_deleted_only_user(configurator):
     Test check_service_user_vcenter function if only 1 service-user is active
     User should not be deleted
     """
-
+    cr_name = "test_cr_name"
     configurator.vcenter_sso.list_service_users.return_value = ["test_service_user_template0001"]
     configurator.vault.get_secret.return_value = {
         "username": "test_service_user_template0001",
@@ -36,11 +36,11 @@ def test_service_user_not_deleted_only_user(configurator):
     # Set last time seen to 25 hours ago so it can be deleted
     time_last_seen = time.time() - 60 * 60 * 25
     configurator.vcenter_service_user_tracker = {
-        "test_service": {"test_host": {"1": time_last_seen}}
+        cr_name: {"test_host": {"1": time_last_seen}}
     }
 
     configurator._check_service_user_vcenter(
-        "test_service_user_template", "test_service", "test_host", "test_path", "1"
+        "test_service_user_template", cr_name, "test_service", "test_host", "test_path", "1"
     )
 
     configurator.vcenter_sso.list_service_users.called_once_with("test_host", "test_service_user_template", "mpw")
@@ -49,7 +49,7 @@ def test_service_user_not_deleted_only_user(configurator):
     configurator.vcenter_sso.delete_service_user.not_called()
 
     assert configurator.vcenter_service_user_tracker == {
-        "test_service": {"test_host": {"1": time_last_seen}}
+        cr_name: {"test_host": {"1": time_last_seen}}
     }
 
 
@@ -58,6 +58,8 @@ def test_service_user_not_deleted_last_seen(configurator):
     Test check_service_user_vcenter function with a service-user that is not older than 24 hours
     Should not be deleted
     """
+
+    cr_name = "test_cr_name"
 
     configurator.vcenter_sso.list_service_users.return_value = [
         "test_service_user_template0001",
@@ -71,7 +73,7 @@ def test_service_user_not_deleted_last_seen(configurator):
 
     time_last_seen = time.time() - 60 * 60 * 10
     configurator.vcenter_service_user_tracker = {
-        "test_service": {
+        cr_name: {
             "test_host": {
                 "1": time_last_seen,
                 "2": time_last_seen,
@@ -80,7 +82,7 @@ def test_service_user_not_deleted_last_seen(configurator):
     }
 
     configurator._check_service_user_vcenter(
-        "test_service_user_template", "test_service", "test_host", "test_path", "2"
+        "test_service_user_template", cr_name, "test_service", "test_host", "test_path", "2"
     )
 
     configurator.vcenter_sso.list_service_users.called_once_with("test_host", "test_service_user_template", "mpw")
@@ -89,7 +91,7 @@ def test_service_user_not_deleted_last_seen(configurator):
     configurator.vcenter_sso.delete_service_user.not_called()
 
     assert configurator.vcenter_service_user_tracker == {
-        "test_service": {
+        cr_name: {
             "test_host": {
                 "1": time_last_seen,
                 "2": time_last_seen,
@@ -104,7 +106,7 @@ def test_service_user_deleted_current(configurator):
     Service-user 2 should not be deleted although it is older than 24 hours
     because it is the current user
     """
-
+    cr_name = "test_cr_name"
     configurator.vcenter_sso.list_service_users.return_value = [
         "test_service_user_template0001",
         "test_service_user_template0002",
@@ -118,7 +120,7 @@ def test_service_user_deleted_current(configurator):
     time_last_seen = time.time() - 60 * 60 * 10
     time_last_seen_2 = time.time() - 60 * 60 * 25
     configurator.vcenter_service_user_tracker = {
-        "test_service": {
+        cr_name: {
             "test_host": {
                 "1": time_last_seen,
                 "2": time_last_seen_2,
@@ -127,7 +129,7 @@ def test_service_user_deleted_current(configurator):
     }
 
     configurator._check_service_user_vcenter(
-        "test_service_user_template", "test_service", "test_host", "test_path", "2"
+        "test_service_user_template", cr_name, "test_service", "test_host", "test_path", "2"
     )
 
     configurator.vcenter_sso.list_service_users.called_once_with("test_host", "test_service_user_template", "mpw")
@@ -136,7 +138,7 @@ def test_service_user_deleted_current(configurator):
     configurator.vcenter_sso.delete_service_user.not_called()
 
     assert configurator.vcenter_service_user_tracker == {
-        "test_service": {
+        cr_name: {
             "test_host": {
                 "1": time_last_seen,
                 "2": time_last_seen_2,
@@ -151,7 +153,7 @@ def test_service_user_deleted(configurator):
     Service-user 1 should be deleted because it is older than 24 hours
     Service-user 2 should not be deleted because it is the current user
     """
-
+    cr_name = "test_cr_name"
     configurator.vcenter_sso.list_service_users.return_value = [
         "test_service_user_template0001",
         "test_service_user_template0002",
@@ -164,7 +166,7 @@ def test_service_user_deleted(configurator):
 
     time_last_seen = time.time() - 60 * 60 * 10
     configurator.vcenter_service_user_tracker = {
-        "test_service": {
+        cr_name: {
             "test_host": {
                 "1": time.time() - 60 * 60 * 25,
                 "2": time_last_seen,
@@ -173,7 +175,7 @@ def test_service_user_deleted(configurator):
     }
 
     configurator._check_service_user_vcenter(
-        "test_service_user_template", "test_service", "test_host", "test_path", "2"
+        "test_service_user_template", cr_name,"test_service", "test_host", "test_path", "2"
     )
 
     configurator.vcenter_sso.list_service_users.called_once_with("test_host", "test_service_user_template", "mpw")
@@ -182,7 +184,7 @@ def test_service_user_deleted(configurator):
     configurator.vcenter_sso.delete_service_user.called_once_with("test_host", "test_service_user_template0001")
 
     assert configurator.vcenter_service_user_tracker == {
-        "test_service": {
+        cr_name: {
             "test_host": {
                 "2": time_last_seen,
             }
