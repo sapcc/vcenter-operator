@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import re
+import signal
 import sys
 from time import sleep
 
@@ -14,6 +15,14 @@ from vcenter_operator.configurator import Configurator
 from vcenter_operator.discovery import DnsDiscovery
 
 LOG = logging.getLogger(__name__)
+
+
+def handle_term(signum, frame):
+    LOG.info("terminating")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, handle_term)
 
 
 def _build_arg_parser():
