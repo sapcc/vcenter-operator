@@ -4,7 +4,7 @@ import logging
 from jinja2 import BaseLoader, Environment, \
     contextfilter, TemplateNotFound
 
-from .masterpassword import MasterPassword
+from masterpassword.masterpassword import MasterPassword
 
 LOG = logging.getLogger(__name__)
 
