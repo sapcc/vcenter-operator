@@ -246,7 +246,7 @@ class KosQuery(CustomResourceDefinitionBase):
         super(KosQuery, self)._process_crd_item(item)
         self.name = (item['metadata']['namespace'], item['metadata']['name'])
         try:
-            self.code = compile(item['python'], self.name[-1], 'exec')
+            self.code = compile(item['python'], "/".join(self.name), 'exec')
         except SyntaxError as e:
             self.code = None
             LOG.warning("Namespace: %s, Error: %s", self.name[0], e)
@@ -321,6 +321,7 @@ class KosQuery(CustomResourceDefinitionBase):
             LOG.debug('exec code for {}'.format(self.name))
             exec(self.code, variables, local_vars)
         except Exception as e:
+            LOG.exception("Error executing query")
             raise KosQueryExecError('Error executing query: {}'.format(e))
 
         variables.pop('__builtins__')
