@@ -30,6 +30,8 @@ class ServiceUserPathNotFoundError(Exception):
     """Raised when a service-user path is not found in the service-user mapping."""
     pass
 
+class VersionMismatchError(Exception):
+    """Raised when a version mismatch is encountered."""
 
 @attr.s
 class DeploymentState:
@@ -46,9 +48,16 @@ class DeploymentState:
                 # e.g. vcenter_cluster/namespace/cr-name
                 namespace = template_name.split("/")[1]
                 jinja2_options = env.get_jinja2_options(template_name)
-                result = self._inject_service_user_info_and_render(
-                    template, service_users, vcenter_service_user_tracker, service_user_crds, options, jinja2_options
-                )
+
+                if "uses-service-user" in jinja2_options:
+                    LOG.debug("Template %s requires service-user management", template.name)
+                    result = self._inject_service_user_info_and_render(
+                        template, service_users, vcenter_service_user_tracker, service_user_crds, options, jinja2_options
+                    )
+                else:
+                    LOG.debug("Template %s does not require service-user management", template.name)
+                    result = template.render(options)
+
                 owner = env.get_source_owner(template_name)
                 self.add(result, owner, namespace)
             except (TemplateError, YAMLError):
@@ -61,13 +70,38 @@ class DeploymentState:
     ):
         """Check if template uses service-user and inject necessary information into the template"""
 
-        if "uses-service-user" not in jinja2_options:
-            LOG.debug("Template %s does not require service-user management", template.name)
-            return template.render(options)
-
         service_name = jinja2_options["uses-service-user"]
         use_ini_password = jinja2_options.get("use-ini-password", False)
-        service_user_path = f"{options['region']}/vcenter-operator/{service_name}/{options['vcenter_name']}"
+
+        if service_name == "nsxt":
+            # options['name'] holds the bb information
+            service_user_path = f"{options['region']}/vcenter-operator/{service_name}/{options['name']}"
+            host = options['name']
+            username_path = (
+                "{{{{ "
+                'resolve "vault+kvv2:///secrets/{}/username?version={}"'
+                " }}}}"
+            )
+            password_path = (
+                    "{{{{ "
+                    'resolve "vault+kvv2:///secrets/{}/password?version={}"'
+                    + (' | replace "$" "$$"' if use_ini_password else "")
+                    + " }}}}"
+            )
+        else:
+            service_user_path = f"{options['region']}/vcenter-operator/{service_name}/{options['vcenter_name']}"
+            host = options["host"]
+            username_path = (
+                "{{{{ "
+                'resolve "vault+kvv2:///secrets/{}/username?version={}"'
+                " }}}}@vsphere.local"
+            )
+            password_path = (
+                    "{{{{ "
+                    'resolve "vault+kvv2:///secrets/{}/password?version={}"'
+                    + (' | replace "$" "$$"' if use_ini_password else "")
+                    + " }}}}"
+            )
 
         if service_name not in service_user_crds:
             # This exception should not get caught - intention is to raise attention to the missing service-user CR
@@ -79,7 +113,7 @@ class DeploymentState:
 
         latest_version = self._get_latest_active_service_user_version(
             service_name,
-            options["host"],
+            host,
             service_users[service_user_path],
             vcenter_service_user_tracker,
         )
@@ -88,17 +122,8 @@ class DeploymentState:
         # Create the service-user username and password paths for secrets-injector
         # Should only be used for resource Secret
         # Only the path gets exposed on missconfigured VCTs due to the secrets-injector
-        username_path = (
-            "{{ "
-            f'resolve "vault+kvv2:///secrets/{service_user_path}/username?version={options["service_user_version"]}"'
-            " }}@vsphere.local"
-        )
-        password_path = (
-            "{{ "
-            f'resolve "vault+kvv2:///secrets/{service_user_path}/password?version={options["service_user_version"]}"'
-            + (' | replace "$" "$$"' if use_ini_password else "")
-            + " }}"
-        )
+        username_path = username_path.format(service_user_path, options["service_user_version"])
+        password_path = password_path.format(service_user_path, options["service_user_version"])
 
         options["username"] = username_path
         options["password"] = password_path
@@ -113,12 +138,14 @@ class DeploymentState:
         return result
 
     def _get_latest_active_service_user_version(
-        self, service_name, vcenter_name, service_user_versions, vcenter_service_user_tracker
+        self, service_name, host, service_user_versions, vcenter_service_user_tracker
     ):
         """Return the latest service-user version for the given service and vcenter"""
-        for service_user in reversed(service_user_versions):
-            if service_user in vcenter_service_user_tracker[service_name][vcenter_name]:
-                return service_user
+        for version in reversed(service_user_versions):
+            if version in vcenter_service_user_tracker[service_name][host]:
+                return version
+        raise VersionMismatchError(f"No vault version {service_user_versions} matches the current"
+                                   f"pod version {vcenter_service_user_tracker[service_name][host].keys()}")
 
     def add(self, result, owner, namespace):
         stream = io.StringIO(result)

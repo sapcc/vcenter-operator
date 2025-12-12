@@ -21,6 +21,7 @@ from vcenter_operator.phelm import DeploymentState, ServiceUserPathNotFoundError
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
 from vcenter_operator.vault import Vault, VaultSecretNotReplicatedError, VaultUnavailableError
 from vcenter_operator.vcenter_sso import SSOSkippedError, VCenterSSO
+from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper
 
 LOG = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ class VcConnectionFailedError(Exception):
 class VcConnectSkippedError(Exception):
     pass
 
+class NSXTManagementError(Exception):
+    pass
 
 def b64decode(s):
     """Decode the given string and return str() instead of bytes"""
@@ -329,6 +332,11 @@ class Configurator:
                 self.global_options.update(mount_point_write=mount_point_write)
                 self.vault.set_mount_point_write(mount_point_write)
 
+            mount_point_write_nsxt = b64decode(secret.data.pop('mount_point_write_nsxt', ""))
+            if mount_point_write_nsxt and self.global_options.get('mount_point_write_nsxt') != mount_point_write_nsxt:
+                self.global_options.update(nsxt_mount_point_write=mount_point_write_nsxt)
+                self.vault.set_mount_point_write(mount_point_write_nsxt, service="nsxt")
+
             approle = {"role_id": role_id, "secret_id": secret_id}
             if self.global_options.get('approle') != approle and role_id != "" and secret_id != "":
                 self.global_options.update(approle=approle)
@@ -403,7 +411,8 @@ class Configurator:
             try:
                 values = self._poll(host)
                 self._check_pods_and_update_service_user_tracker()
-                self._reconcile_service_users(host)
+                vc_clusters = [cluster for cluster in values["clusters"]]
+                self._reconcile_service_users(host, vc_clusters)
 
                 state = DeploymentState(dry_run=(self.global_options.get('dry_run', 'False') == 'True'))
 
@@ -434,12 +443,16 @@ class Configurator:
                 LOG.warning("Ignoring host %s for this run due to Vault not beeing replicated", host)
             except SSOSkippedError:
                 LOG.warning("Ignoring host %s for this run due to SSO being unavailable", host)
+            except NSXTSkippedError as e:
+                LOG.warning(e)
+            except NSXTManagementError as e:
+                LOG.warning(e)
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
             except ServiceUserPathNotFoundError as e:
                 LOG.warning("Ignoring host %s for this run due to missing service user path in state: %s", host, e)
 
-    def _reconcile_service_users(self, host):
+    def _reconcile_service_users(self, host, vc_clusters):
         """
         Ensures that service-users are consistent across Vault and vCenter for the given host
         This method:
@@ -450,26 +463,56 @@ class Configurator:
         if not self.global_options['manage_service_user_passwords']:
             return
 
-        for service, (_, service_username_template, _) in vcenter_service_user_crd_loader.get_mapping().items():
+        user_crds = vcenter_service_user_crd_loader.get_mapping()
+
+        for service, (_, service_username_template, _) in user_crds.items():
+            if service == "nsxt":
+                for vc_cluster in vc_clusters:
+                    bb_name = vc_cluster.removeprefix("production")
+                    management_user_path = "{}/compute/nsxt/nsx-ctl-1-{}.cc.{}.cloud.sap/nsxt-shell".format(
+                        self.global_options['region'], bb_name, self.global_options['region'])
+                    try:
+                        # Fetch from default path
+                        management_user = self.vault.get_secret(management_user_path)
+                    except Exception:
+                        msg = f"NSXT: Not able to fetch management user for nsxt shell user {management_user_path}"
+                        raise NSXTManagementError(msg)
+
+                    if not management_user:
+                        LOG.error("NSXT: Could not read management user for service user creation: %s", management_user_path)
+                        continue
+
+                    path = f"{self.global_options['region']}/vcenter-operator/{service}/{bb_name}"
+                    LOG.info("NSXT: Check service user %s %s %s", path, service_username_template, service)
+
+                    mount_point_name = self.global_options["nsxt_mount_point_write"]
+                    latest_version = self._check_vault_user(path, service_username_template, service, mount_point_name)
+                    self._check_nsxt_service_user(service_username_template, service, self.global_options['region'], bb_name, path, latest_version,
+                                                  management_user,
+                                                  role="enterprise_admin", mount_point_name=mount_point_name)
+                continue
             # host: {name}.{domain}
             vcenter_name = host.split('.')[0]
             path = f"{self.global_options['region']}/vcenter-operator/{service}/{vcenter_name}"
 
-            if path not in self.last_service_user_check:
-                self.last_service_user_check[path] = 0
-
-            if self.last_service_user_check[path] + self.vault_check_interval < time.time():
-                latest_version = self._check_service_user_vault(path, service_username_template, service)
-                self.last_service_user_check[path] = time.time()
-            else:
-                latest_version = self.service_users[path][-1]
-
+            latest_version = self._check_vault_user(path, service_username_template, service)
             self._check_service_user_vcenter(service_username_template, service, host, path, latest_version)
+
+    def _check_vault_user(self, path, service_username_template, service, mount_point_name=None):
+        if path not in self.last_service_user_check:
+            self.last_service_user_check[path] = 0
+
+        if self.last_service_user_check[path] + self.vault_check_interval < time.time():
+            latest_version = self._check_service_user_vault(path, service_username_template, service, mount_point_name)
+            self.last_service_user_check[path] = time.time()
+        else:
+            latest_version = self.service_users[path][-1]
+        return latest_version
 
     def _check_service_user_vault(self, path, service_username_template, service):
         """Generates ground thruth for service-users and checks for new versions in vault"""
         LOG.debug("Checking service-user under path %s in vault", path)
-        metadata_write = self.vault.get_metadata(path, read=False)
+        metadata_write = self.vault.get_metadata(path, read=False, service=service)
 
         # Create service_user in vault, if not exists
         if not metadata_write:
@@ -477,12 +520,12 @@ class Configurator:
             latest_version, _, _ = self.vault.create_service_user(service_username_template, path, service)
             self.service_users[path] = [latest_version]
             return latest_version
-
+        # No need to pass service here, as there is only one read mount point
         metadata_read = self.vault.get_metadata(path, read=True)
         # Check if replicated
         if not metadata_read:
             LOG.info("Service-user in vault is not replicated - triggering replication")
-            self.vault.trigger_replicate(path)
+            self.vault.trigger_replicate(path, service)
             raise VaultSecretNotReplicatedError()
 
         # Check if metadata is up to date
@@ -498,7 +541,7 @@ class Configurator:
         )
         if latest_version_write > latest_version_read:
             LOG.warning("Service-user of path %s in vault is not up to date - triggering replication", path)
-            self.vault.trigger_replicate(path)
+            self.vault.trigger_replicate(path, service)
             raise VaultSecretNotReplicatedError()
 
         latest_version = str(latest_version_read)
@@ -555,7 +598,7 @@ class Configurator:
             secret = self.vault.get_secret(path)
             if secret["username"] != current_username:
                 LOG.warning("Username in vault does not match the current username")
-                self.vault.trigger_replicate(path)
+                self.vault.trigger_replicate(path, mount_point_name)
                 raise VaultSecretNotReplicatedError()
 
             self.vcenter_sso.create_service_user(host, secret["username"], secret["password"], service)
@@ -592,7 +635,7 @@ class Configurator:
 
             if self.vcenter_service_user_tracker[service][host][version] + self.max_time_not_seen < time.time():
                 LOG.info("Deleting service-user %s in vcenter %s because it was not seen for %d seconds", service_user,
-                          host, self.max_time_not_seen)
+                         host, self.max_time_not_seen)
                 self.vcenter_sso.delete_service_user(host, service_user)
                 del self.vcenter_service_user_tracker[service][host][version]
 
@@ -616,20 +659,127 @@ class Configurator:
             labels = metadata.labels or {}
 
             service = annotations.get("uses-service-user")
-            vcenter = labels.get("vcenter")
             version = labels.get("vcenter-operator-secret-version")
-            if service and vcenter and version:
+
+            if not service:
+                LOG.debug("Pod has no label 'uses-service-user'. Skipping user management")
+                continue
+
+            if service == "nsxt":
+                host = labels.get("vccluster").removeprefix("production")
+            else:
+                host = labels.get("vcenter")
+
+            if host and version:
                 if service in service_users:
                     _, service_username_template, _ = service_users[service]
                     service_user = service_username_template + str(version).zfill(4)
                     LOG.debug("Found pod with service-user %s and version %s - updating last seen timestamp",
-                               service_user, version)
+                              service_user, version)
 
                     # Check if vcenter_service_user_tracker has an entry for vcenter and service combination
                     if service not in self.vcenter_service_user_tracker:
                         self.vcenter_service_user_tracker[service] = dict()
 
-                    if vcenter not in self.vcenter_service_user_tracker[service]:
-                        self.vcenter_service_user_tracker[service][vcenter] = dict()
+                    if host not in self.vcenter_service_user_tracker[service]:
+                        self.vcenter_service_user_tracker[service][host] = dict()
 
-                    self.vcenter_service_user_tracker[service][vcenter][str(version)] = time.time()
+                    self.vcenter_service_user_tracker[service][host][str(version)] = time.time()
+            else:
+                LOG.info("Pod %s misses host or version label (%s/%s). Skipping Pod for user management", pod.metadata.name, host, version)
+
+    def _check_nsxt_service_user(self, service_user_prefix, service, region, bb, path, latest_version, management_user, role, mount_point_name):
+        """Check if service-user is still running"""
+        current_username = service_user_prefix + str(latest_version).zfill(4)
+        dry_run = self.global_options.get('dry_run', "False") == 'True'
+        nsxt = NsxtUserAPIHelper(user=management_user["username"], password=management_user["password"],
+                                 bb=bb, region=region, dry_run=dry_run)
+
+        try:
+            active_users = nsxt.list_users(prefix=service_user_prefix)
+        except Exception as e:
+            msg = f"Failed to list users - {e}"
+            raise NSXTSkippedError(msg)
+
+        # Check if vcenter_service_user_tracker has an entry for vcenter and service combination
+        if service not in self.vcenter_service_user_tracker:
+            self.vcenter_service_user_tracker[service] = dict()
+
+        if bb not in self.vcenter_service_user_tracker[service]:
+            self.vcenter_service_user_tracker[service][bb] = dict()
+
+        # Create current user in NSXT
+        if current_username not in active_users:
+            LOG.info("Creating NSXT service-user %s in NSXT Manager for BB %s", current_username, bb)
+
+            secret = self.vault.get_secret(path)
+
+            if secret['username'] != current_username:
+                LOG.warning("NSXT service-user in vault does not match the current username")
+                self.vault.trigger_replicate(path, mount_point_name)
+                raise VaultSecretNotReplicatedError
+
+            try:
+                nsxt.create_service_user(secret['username'], secret['password'])
+                nsxt.add_user_to_group(current_username, role)
+            except Exception as e:
+                msg = f"Failed to manage NSXT service-user {current_username}. Failed with error {e}"
+                raise NSXTSkippedError(msg)
+
+            # Create Session with new user
+            try:
+                tmp_nsxt = NsxtUserAPIHelper(user=secret['username'], password=secret['password'],
+                                             bb=bb, region=region, dry_run=dry_run)
+                tmp_nsxt.connect()
+            except Exception as e:
+                raise NSXTSkippedError(e)
+
+            # Remove leading zeros
+            curr_version = str(int(latest_version))
+            self.vcenter_service_user_tracker[service][bb][curr_version] = time.time()
+
+        # If missing, add the role to the user
+        try:
+            user_has_group = nsxt.check_users_in_group(current_username, role)
+        except Exception as e:
+            msg = f"Failed to check user {current_username} has role {role}. Error:{e}"
+            raise NSXTSkippedError(msg)
+
+        if not user_has_group:
+            LOG.info("NSXT service-user %s misses role %s. Adding it", current_username, role)
+
+            try:
+                nsxt.add_user_to_group(current_username, role)
+            except Exception as e:
+                msg = f"Failed to add user {current_username} to group {role}. Failed with error {e}"
+                raise NSXTSkippedError(msg)
+
+        # Search stale/outdated service-user
+        for user in active_users:
+            if not user.startswith(service_user_prefix):
+                LOG.debug("Service-user %s does not match service-user template %s - skipping",
+                          user, service_user_prefix)
+                continue
+
+            version = str(int(user.removeprefix(service_user_prefix)))
+
+            # Stale user - remove in a a later iteration
+            if version not in self.vcenter_service_user_tracker[service][bb].keys():
+                LOG.info("NSXT: Found stale service-user %s in NSXT Manager for BB %s", user, bb)
+                self.vcenter_service_user_tracker[service][bb][version] = time.time()
+                continue
+
+            # Do not delete the active user
+            if user == current_username:
+                continue
+
+            if self.vcenter_service_user_tracker[service][bb][version] + self.max_time_not_seen < time.time():
+                LOG.info("NSXT: Deleting service-user %s in NSXT Manager for BB %s because it was reconciled for %d seconds",
+                         user, bb, self.max_time_not_seen)
+
+                try:
+                    nsxt.delete_service_user(user)
+                except Exception as e:
+                    msg =f"Failed to delete service user {user} in BB {bb}. Failed with Error: {e}"
+                    raise NSXTSkippedError(msg)
+                del self.vcenter_service_user_tracker[service][bb][version]
