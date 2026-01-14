@@ -279,7 +279,8 @@ class VCenterServiceUserCRDLoader(PollingLoader):
         # Checks if the service_username_template already exists to prevent duplicates and potential conflicts
         # Also checks if the service_username_template is a substring of an existing template to prevent conflicts
         for value in mapping.values():
-            if service_username_template == value[1] or value[1].startswith(service_username_template):
+            username = value[1]["username"]
+            if service_username_template == username or username.startswith(service_username_template):
                 raise VCenterServiceUserCRDUsernameTemplateDuplicateError()
 
     @staticmethod
@@ -307,6 +308,7 @@ class VCenterServiceUserCRDLoader(PollingLoader):
                                         "type": "object",
                                         "properties": {
                                             "username": {"type": "string"},
+                                            "service" : {"type": "string"},
                                         },
                                     },
                                 },
@@ -331,10 +333,27 @@ class VCenterServiceUserCRDLoader(PollingLoader):
         api = client.ApiextensionsV1Api()
         self._crd = VCenterServiceUserCRDLoader._custom_resource_definition()
 
+        name = self._crd.metadata["name"]
+        patch_existing_crd = False
         try:
-            api.create_custom_resource_definition(self._crd)
+            tmp_crd = api.read_custom_resource_definition(name)
+            if tmp_crd:
+                patch_existing_crd = True
         except client.rest.ApiException:
-            LOG.exception("Failed to create custom resource definition service-user")
+            LOG.exception("Failed to read custom resource definition %s", name)
+
+        if patch_existing_crd:
+            try:
+                LOG.debug("Patching existing custom resource definition %s", name)
+                api.patch_custom_resource_definition(name, self._crd)
+            except client.rest.ApiException:
+                LOG.exception("Failed to patch custom resource definition %s", name)
+        else:
+            try:
+                LOG.debug("Create custom resource definition %s", name)
+                api.create_custom_resource_definition(self._crd)
+            except client.rest.ApiException:
+                LOG.exception("Failed to create custom resource definition service-user %s", name)
 
 
 class K8sEnvironment(Environment):
