@@ -450,7 +450,13 @@ class Configurator:
         if not self.global_options['manage_service_user_passwords']:
             return
 
-        for service, (_, service_username_template, _) in vcenter_service_user_crd_loader.get_mapping().items():
+        user_crds = vcenter_service_user_crd_loader.get_mapping()
+
+        # service matches the name of the custom resource
+        for service, (_, spec, _) in user_crds.items():
+            # username prefix
+            service_username_template = spec["username"]
+
             # host: {name}.{domain}
             vcenter_name = host.split('.')[0]
             path = f"{self.global_options['region']}/vcenter-operator/{service}/{vcenter_name}"
@@ -620,8 +626,8 @@ class Configurator:
             version = labels.get("vcenter-operator-secret-version")
             if service and vcenter and version:
                 if service in service_users:
-                    _, service_username_template, _ = service_users[service]
-                    service_user = service_username_template + str(version).zfill(4)
+                    _, spec, _ = service_users[service]
+                    service_user = spec["username"] + str(version).zfill(4)
                     LOG.debug("Found pod with service-user %s and version %s - updating last seen timestamp",
                                service_user, version)
 
