@@ -563,6 +563,14 @@ class Configurator:
             self.vault.trigger_replicate(path, service_type)
             raise VaultSecretNotReplicatedError()
 
+        if latest_version_read > latest_version_write:
+            LOG.error(
+                "Service user for path %s in Vault is ahead of time: "
+                "secret version in the read mountpoint (%d) is higher than in the write mountpoint (%d). "
+                "Consider increasing the version in the write mountpoint.",
+                path, latest_version_read, latest_version_write,
+            )
+
         latest_version = str(latest_version_read)
         expiry_date = metadata_read['data']['custom_metadata']['expiry_date']
         expiry_date = datetime.strptime(expiry_date, '%Y-%m-%d')
