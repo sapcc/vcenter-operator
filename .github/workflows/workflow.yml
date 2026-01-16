@@ -20,15 +20,15 @@ jobs:
         run: pip install tox
       - name: Run Tox
         run: "tox -e test"
-#  pep8:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Setup python
-#        uses: actions/setup-python@v2
-#        with:
-#          python-version: ${{ matrix.python }}
-#      - name: Install Tox
-#        run: pip install tox
-#      - name: Run Tox pep8
-#        run: "tox -e pep8"
+  pep8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox
+        run: pip install tox
+      - name: Run Tox pep8
+        run: "tox -e pep8"

@@ -47,7 +47,7 @@ whitelist_externals = sh
 commands = pytest -v
 
 [testenv:pep8]
-commands = ruff
+commands = ruff check
 deps = ruff
 basepython = python3.10
 """
