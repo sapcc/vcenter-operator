@@ -1,10 +1,10 @@
 import time
 import unittest
-
 from unittest.mock import MagicMock, patch
 
 from vcenter_operator.configurator import Configurator
 from vcenter_operator.nsxt_user_manager import NsxtUserAPIHelper
+
 
 class TestNsxtServiceUserManagement(unittest.TestCase):
     def setUp(self):

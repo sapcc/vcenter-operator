@@ -1,12 +1,11 @@
-import os
 import logging
+import os
+from unittest.mock import MagicMock
 
 import pytest
 
-from unittest.mock import MagicMock
-
 from vcenter_operator.configurator import Configurator
-from vcenter_operator.nsxt_user_manager import NsxtUserAPIHelper, ObjectAlreadyExistsException, ObjectDoesNotExistException
+from vcenter_operator.nsxt_user_manager import NsxtUserAPIHelper, ObjectAlreadyExistsError, ObjectDoesNotExistError
 
 LOG = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ def delete_user(user_api):
         try:
             user_api.delete_service_user(USERNAME)
         except Exception as e:
-            LOG.error("Failed to delete user %s" % e)
+            LOG.error(f"Failed to delete user {e}")
     return delete
 
 
@@ -62,13 +61,13 @@ def test_duplicate_user_creation(user_api, delete_user):
 
     user_api.create_service_user(USERNAME, NEW_PASSWORD)
 
-    with pytest.raises(ObjectAlreadyExistsException) as excinfo:
+    with pytest.raises(ObjectAlreadyExistsError) as excinfo:
         user_api.create_service_user(USERNAME, NEW_PASSWORD)
     assert str(excinfo.value) == "Object already exists"
 
 
 def test_group_not_present(user_api):
-    with pytest.raises(ObjectDoesNotExistException) as excinfo:
+    with pytest.raises(ObjectDoesNotExistError) as excinfo:
         user_api.add_user_to_group(USERNAME, "NOT_PRESENT")
 
     assert str(excinfo.value) == "Object does not exist."

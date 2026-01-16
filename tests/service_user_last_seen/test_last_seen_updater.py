@@ -35,7 +35,8 @@ def test_update_last_seen_of_valid_pod(configurator):
         "test_service": {"test_host": {"test_service_user_template0001": old_last_seen}}
     }
 
-    vcenter_service_user_crd_loader.get_mapping.return_value = {"test_service": ("", {"username": "test_service_user_template"}, "")}
+    vcenter_service_user_crd_loader.get_mapping.return_value = \
+        {"test_service": ("", {"username": "test_service_user_template"}, "")}
     pod = V1Pod(
         metadata=V1ObjectMeta(
             annotations={"uses-service-user": "test_service"},
@@ -66,7 +67,8 @@ def test_update_last_seen_of_valid_pod_wrong_version(configurator):
         "test_service": {"test_host": {"1": old_last_seen}}
     }
 
-    vcenter_service_user_crd_loader.get_mapping.return_value = {"test_service": ("", {"username": "test_service_user_template"}, "")}
+    vcenter_service_user_crd_loader.get_mapping.return_value = \
+        {"test_service": ("", {"username": "test_service_user_template"}, "")}
     pod = V1Pod(
         metadata=V1ObjectMeta(
             annotations={"uses-service-user": "test_service"},

@@ -1,9 +1,10 @@
-import pytest
 import re
-
-from vcenter_operator.vault import Vault
 from unittest import mock
 from unittest.mock import call
+
+import pytest
+
+from vcenter_operator.vault import Vault
 
 URL = "http://random.com"
 TOKEN = "TOKEN"

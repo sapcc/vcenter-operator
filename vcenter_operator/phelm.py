@@ -31,7 +31,7 @@ class ServiceUserPathNotFoundError(Exception):
     pass
 
 
-class VersionNotFound(Exception):
+class VersionNotFoundError(Exception):
     """Raised when no compatible vault service-user version is found in the target system (NSX-T or vCenter)"""
 
 @attr.s
@@ -53,7 +53,8 @@ class DeploymentState:
                 if "uses-service-user" in jinja2_options:
                     LOG.debug("Template %s requires service-user management", template.name)
                     result = self._inject_service_user_info_and_render(
-                        template, service_users, vcenter_service_user_tracker, service_user_crds, options, jinja2_options
+                        template, service_users, vcenter_service_user_tracker,
+                        service_user_crds, options, jinja2_options
                     )
                 else:
                     LOG.debug("Template %s does not require service-user management", template.name)
@@ -145,7 +146,7 @@ class DeploymentState:
         for version in reversed(service_user_versions):
             if version in vcenter_service_user_tracker[service_name][host]:
                 return version
-        raise VersionNotFound(f"No matching service-user versions {service_user_versions} found."
+        raise VersionNotFoundError(f"No matching service-user versions {service_user_versions} found."
                               f"Service has versions "
                               f"{vcenter_service_user_tracker[service_name][host].keys()}")
 

@@ -7,15 +7,15 @@ import urllib3
 LOG = logging.getLogger(__name__)
 
 
-class NotAuthorizedException(Exception):
+class NotAuthorizedError(Exception):
     pass
 
 
-class ObjectAlreadyExistsException(Exception):
+class ObjectAlreadyExistsError(Exception):
     pass
 
 
-class ObjectDoesNotExistException(Exception):
+class ObjectDoesNotExistError(Exception):
     pass
 
 
@@ -27,7 +27,7 @@ class NSXTSkippedError(Exception):
     pass
 
 
-class NsxtLoginHelper():
+class NsxtLoginHelper:
     def __init__(self, user=None, password=None, bb=None, region=None, verify_ssl=False, dry_run=False):
         self.dry_run = dry_run
         self.user = user
@@ -51,14 +51,14 @@ class NsxtLoginHelper():
         if not isinstance(bb, int):
             m = re.match(r'^b?b?(?P<num>\d+)$', bb.lower())
             if not m:
-                raise ValueError('"{}" is not a valid building block'.format(bb))
+                raise ValueError(f'"{bb}" is not a valid building block')
 
             bb = int(m.group('num'))
 
         if leading_zero:
-            return 'bb{:03}'.format(bb)
+            return f'{bb:03}'
         else:
-            return 'bb{}'.format(bb)
+            return f'bb{bb}'
 
     def gen_fullpath(self, subpath):
         url = f"https://nsx-ctl-{self.bb}.cc.{self.region}.cloud.sap"
@@ -70,10 +70,10 @@ class NsxtLoginHelper():
             url = self.gen_fullpath("api/session/create")
             r = self.session.post(url, data={'j_username': self.user, 'j_password': self.password})
         except requests.exceptions.ConnectionError as e:
-            raise ConnectionError("Could not connect to nsx-t: {}".format(e))
+            raise ConnectionError(f"Could not connect to nsx-t: {e}")
 
         if r.status_code != 200:
-            raise NotAuthorizedException(f"Authentication failure to {self.bb} with user {self.user}")
+            raise NotAuthorizedError(f"Authentication failure to {self.bb} with user {self.user}")
 
         self.session.headers['X-XSRF-TOKEN'] = r.headers['X-XSRF-TOKEN']
 
@@ -91,10 +91,10 @@ class NsxtLoginHelper():
         res = self.session.get(url, params=params)
 
         if res.status_code == 403:
-            raise NotAuthorizedException(f"Authentication failure to {self.bb} with user {self.user}")
+            raise NotAuthorizedError(f"Authentication failure to {self.bb} with user {self.user}")
 
         if res.status_code == 404:
-            raise ObjectDoesNotExistException("Object does not exist.")
+            raise ObjectDoesNotExistError("Object does not exist.")
 
         res.raise_for_status()
 
@@ -110,7 +110,7 @@ class NsxtLoginHelper():
         res = self.session.delete(url)
 
         if res.status_code == 403:
-            raise NotAuthorizedException(f"Authentication failure to {self.bb} with user {self.user}")
+            raise NotAuthorizedError(f"Authentication failure to {self.bb} with user {self.user}")
 
         res.raise_for_status()
 
@@ -124,10 +124,10 @@ class NsxtLoginHelper():
             self.connect()
         res = self.session.post(url, json=data, params=params)
         if res.status_code == 403:
-            raise NotAuthorizedException(f"Authentication failure to {self.bb} with user {self.user}")
+            raise NotAuthorizedError(f"Authentication failure to {self.bb} with user {self.user}")
 
         if res.status_code == 409:
-            raise ObjectAlreadyExistsException("Object already exists")
+            raise ObjectAlreadyExistsError("Object already exists")
 
         res.raise_for_status()
 
@@ -141,17 +141,17 @@ class NsxtLoginHelper():
             self.connect()
         res = self.session.put(url, json=data, params=params)
         if res.status_code == 403:
-            raise NotAuthorizedException(f"Authentication failure to {self.bb} with user {self.user}")
+            raise NotAuthorizedError(f"Authentication failure to {self.bb} with user {self.user}")
 
         if res.status_code == 409:
-            raise ObjectAlreadyExistsException("Object already exists")
+            raise ObjectAlreadyExistsError("Object already exists")
 
         res.raise_for_status()
 
         return res
 
 
-class User():
+class User:
     def __init__(self, name, id, roles, role_mapping_id, revision):
         self.name = name
         self.id = id
@@ -176,7 +176,7 @@ class User():
 
 class NsxtUserAPIHelper(NsxtLoginHelper):
     def __init__(self, user, password, bb, region, dry_run):
-        super(NsxtUserAPIHelper, self).__init__(user=user, password=password, bb=bb, region=region,
+        super().__init__(user=user, password=password, bb=bb, region=region,
                                                 verify_ssl=False, dry_run=dry_run)
 
     def get_user(self, username):
@@ -227,18 +227,14 @@ class NsxtUserAPIHelper(NsxtLoginHelper):
         return curr_user.has_all_roles(groups)
 
     def get_role(self, role_name):
-        path = "api/v1/aaa/roles/{}".format(role_name)
-        return self.get(self.gen_fullpath(path))
-
-    def list_roles(self):
-        path = "api/v1/aaa/roles"
+        path = f"api/v1/aaa/roles/{role_name}"
         return self.get(self.gen_fullpath(path))
 
     def add_user_to_group(self, username, groupname):
         user = self.get_user(username)
 
         if self.check_users_in_group(user, groupname):
-            LOG.debug("User {} already has role {}".format(username, groupname))
+            LOG.debug(f"User {username} already has role {groupname}")
             return
 
         path =  f"api/v1/aaa/role-bindings/{user.role_mapping_id}"
@@ -275,8 +271,8 @@ class NsxtUserAPIHelper(NsxtLoginHelper):
         params = {"action": "create_user"}
         try:
             self.post(self.gen_fullpath(path), data=user, params=params)
-        except ObjectAlreadyExistsException:
-            LOG.debug("User {} already exists".format(username))
+        except ObjectAlreadyExistsError:
+            LOG.debug(f"User {username} already exists")
 
     def delete_service_user(self, username):
         path = "api/v1/node/users/{}"

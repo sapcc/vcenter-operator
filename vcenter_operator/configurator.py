@@ -17,11 +17,11 @@ from pyVim.connect import Disconnect, SmartConnect
 from pyVmomi import vim
 
 import vcenter_operator.vcenter_util as vcu
+from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper
 from vcenter_operator.phelm import DeploymentState, ServiceUserPathNotFoundError
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
 from vcenter_operator.vault import Vault, VaultSecretNotReplicatedError, VaultUnavailableError
 from vcenter_operator.vcenter_sso import SSOSkippedError, VCenterSSO
-from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper
 
 LOG = logging.getLogger(__name__)
 
@@ -484,16 +484,17 @@ class Configurator:
                         raise NSXTManagementError(msg)
 
                     if not management_user:
-                        LOG.error("NSXT: Could not read management user for service user creation: %s", management_user_path)
+                        LOG.error("NSXT: Could not read management user for "
+                                  "service user creation: %s", management_user_path)
                         continue
 
                     path = f"{self.global_options['region']}/vcenter-operator/{service}/{bb_name}"
                     LOG.debug("NSXT: Check service user %s %s %s", path, service_username_template, service)
 
                     latest_version = self._check_vault_user(path, service_username_template, service)
-                    self._check_service_user_nsxt(service_username_template, service, self.global_options['region'], bb_name, path, latest_version,
-                                                  management_user,
-                                                  role="enterprise_admin")
+                    self._check_service_user_nsxt(service_username_template, service,
+                                                  self.global_options['region'], bb_name, path, latest_version,
+                                                  management_user, role="enterprise_admin")
             else:
                 # host: {name}.{domain}
                 vcenter_name = host.split('.')[0]
@@ -704,9 +705,11 @@ class Configurator:
 
                     self.vcenter_service_user_tracker[service][host][str(version)] = time.time()
             else:
-                LOG.info("Pod %s misses host or version label (%s/%s). Skipping Pod for user management", pod.metadata.name, host, version)
+                LOG.info("Pod %s misses host or version label (%s/%s). "
+                         "Skipping Pod for user management", pod.metadata.name, host, version)
 
-    def _check_service_user_nsxt(self, service_user_prefix, service, region, bb, path, latest_version, management_user, role):
+    def _check_service_user_nsxt(self, service_user_prefix, service, region, bb,
+                                 path, latest_version, management_user, role):
         """Check if service-user in NSXT is up-to-date"""
         current_username = service_user_prefix + str(latest_version).zfill(4)
         dry_run = self.global_options.get('dry_run', "False") == 'True'
@@ -792,7 +795,8 @@ class Configurator:
                 continue
 
             if self.vcenter_service_user_tracker[service][bb][version] + self.max_time_not_seen < time.time():
-                LOG.info("NSXT: Deleting service-user %s in NSXT Manager for BB %s because it was reconciled for %d seconds",
+                LOG.info("NSXT: Deleting service-user %s in NSXT Manager for BB %s because "
+                         "it was reconciled for %d seconds",
                          user, bb, self.max_time_not_seen)
 
                 try:

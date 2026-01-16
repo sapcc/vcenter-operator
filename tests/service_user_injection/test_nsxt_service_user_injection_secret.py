@@ -81,7 +81,7 @@ metadata:
 data:
   NSXV3_LOGIN_USER: {{ resolve "vault+kvv2:///secrets/test_region/vcenter-operator/nsxt/bb085/username?version=1" }}
   NSXV3_LOGIN_PASSWORD: {{ resolve "vault+kvv2:///secrets/test_region/vcenter-operator/nsxt/bb085/password?version=1" }}
-  neutron-nsxv3-secrets.conf: CiAgW05TWFYzXQogIG5zeHYzX2xvZ2luX3VzZXIgPSB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3VzZXJuYW1lP3ZlcnNpb249MSIgfX0KICBuc3h2M19sb2dpbl9wYXNzd29yZCA9ICB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3Bhc3N3b3JkP3ZlcnNpb249MSIgfX0="""
+  neutron-nsxv3-secrets.conf: CiAgW05TWFYzXQogIG5zeHYzX2xvZ2luX3VzZXIgPSB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3VzZXJuYW1lP3ZlcnNpb249MSIgfX0KICBuc3h2M19sb2dpbl9wYXNzd29yZCA9ICB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3Bhc3N3b3JkP3ZlcnNpb249MSIgfX0=""" # noqa: E501
     )
 
 
@@ -123,7 +123,7 @@ metadata:
 data:
   NSXV3_LOGIN_USER: {{ resolve "vault+kvv2:///secrets/test_region/vcenter-operator/nsxt/bb085/username?version=1" }}
   NSXV3_LOGIN_PASSWORD: {{ resolve "vault+kvv2:///secrets/test_region/vcenter-operator/nsxt/bb085/password?version=1" }}
-  neutron-nsxv3-secrets.conf: CiAgW05TWFYzXQogIG5zeHYzX2xvZ2luX3VzZXIgPSB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3VzZXJuYW1lP3ZlcnNpb249MSIgfX0KICBuc3h2M19sb2dpbl9wYXNzd29yZCA9ICB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3Bhc3N3b3JkP3ZlcnNpb249MSIgfX0="""
+  neutron-nsxv3-secrets.conf: CiAgW05TWFYzXQogIG5zeHYzX2xvZ2luX3VzZXIgPSB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3VzZXJuYW1lP3ZlcnNpb249MSIgfX0KICBuc3h2M19sb2dpbl9wYXNzd29yZCA9ICB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3Bhc3N3b3JkP3ZlcnNpb249MSIgfX0=""" # noqa: E501
     )
 
 
@@ -165,5 +165,5 @@ metadata:
 data:
   NSXV3_LOGIN_USER: {{ resolve "vault+kvv2:///secrets/test_region/vcenter-operator/nsxt/bb085/username?version=2" }}
   NSXV3_LOGIN_PASSWORD: {{ resolve "vault+kvv2:///secrets/test_region/vcenter-operator/nsxt/bb085/password?version=2" }}
-  neutron-nsxv3-secrets.conf: CiAgW05TWFYzXQogIG5zeHYzX2xvZ2luX3VzZXIgPSB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3VzZXJuYW1lP3ZlcnNpb249MiIgfX0KICBuc3h2M19sb2dpbl9wYXNzd29yZCA9ICB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3Bhc3N3b3JkP3ZlcnNpb249MiIgfX0="""
+  neutron-nsxv3-secrets.conf: CiAgW05TWFYzXQogIG5zeHYzX2xvZ2luX3VzZXIgPSB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3VzZXJuYW1lP3ZlcnNpb249MiIgfX0KICBuc3h2M19sb2dpbl9wYXNzd29yZCA9ICB7eyByZXNvbHZlICJ2YXVsdCtrdnYyOi8vL3NlY3JldHMvdGVzdF9yZWdpb24vdmNlbnRlci1vcGVyYXRvci9uc3h0L2JiMDg1L3Bhc3N3b3JkP3ZlcnNpb249MiIgfX0=""" # noqa: E501
     )
