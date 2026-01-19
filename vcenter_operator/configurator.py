@@ -20,8 +20,9 @@ import vcenter_operator.vcenter_util as vcu
 from vcenter_operator.phelm import DeploymentState, ServiceUserPathNotFoundError
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
 from vcenter_operator.vault import Vault, VaultSecretNotReplicatedError, VaultUnavailableError
+from vcenter_operator.vault_cache import NSXTManagementCache
 from vcenter_operator.vcenter_sso import SSOSkippedError, VCenterSSO
-from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper
+from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper, NotAuthorizedException
 
 LOG = logging.getLogger(__name__)
 
@@ -77,6 +78,9 @@ class Configurator:
         self.vcenter_service_user_tracker = dict()
         self.states = dict()
         self.vault = Vault(dry_run=self.global_options.get('dry_run', 'False') == 'True')
+        self.nsxt_management_user_cache_lifetime = 60 * 30
+        self.nsxt_vaultcache = NSXTManagementCache(self.global_options['region'], self.vault,
+                                                   cache_lifetime=self.nsxt_management_user_cache_lifetime)
         self.vcenter_sso = VCenterSSO(dry_run=self.global_options.get('dry_run', 'False') == 'True')
         self.global_options['cells'] = set()
         self.global_options['domain'] = domain
@@ -296,6 +300,9 @@ class Configurator:
             vault_check_interval = b64decode(secret.data.pop('vault_check_interval', ""))
             if self.vault_check_interval != vault_check_interval and vault_check_interval != "":
                 self.vault_check_interval = int(vault_check_interval)
+            # The maximum time (in seconds) to refresh the nsxt management user; Default 30 min
+            self.nsxt_management_user_cache_lifetime = (
+                int(b64decode(secret.data.pop('nsxt_management_user_cache_lifetime', 60 * 30 ))))
 
             password_length = int(b64decode(secret.data.pop('password_length')))
             password_digits = int(b64decode(secret.data.pop('password_digits')))
@@ -474,25 +481,12 @@ class Configurator:
             if service_type == "nsxt":
                 for vc_cluster in vc_cluster_names:
                     bb_name = vc_cluster.removeprefix("production")
-                    management_user_path = "{}/compute/nsxt/nsx-ctl-1-{}.cc.{}.cloud.sap/nsxt-shell".format(
-                        self.global_options['region'], bb_name, self.global_options['region'])
-                    try:
-                        # Fetch from default path
-                        management_user = self.vault.get_secret(management_user_path)
-                    except Exception:
-                        msg = f"NSXT: Not able to fetch management user for nsxt shell user {management_user_path}"
-                        raise NSXTManagementError(msg)
-
-                    if not management_user:
-                        LOG.error("NSXT: Could not read management user for service user creation: %s", management_user_path)
-                        continue
 
                     path = f"{self.global_options['region']}/vcenter-operator/{service}/{bb_name}"
                     LOG.debug("NSXT: Check service user %s %s %s", path, service_username_template, service)
 
                     latest_version = self._check_vault_user(path, service_username_template, service)
                     self._check_service_user_nsxt(service_username_template, service, self.global_options['region'], bb_name, path, latest_version,
-                                                  management_user,
                                                   role="enterprise_admin")
             else:
                 # host: {name}.{domain}
@@ -706,18 +700,39 @@ class Configurator:
             else:
                 LOG.info("Pod %s misses host or version label (%s/%s). Skipping Pod for user management", pod.metadata.name, host, version)
 
-    def _check_service_user_nsxt(self, service_user_prefix, service, region, bb, path, latest_version, management_user, role):
+
+    def _check_service_user_nsxt(self, service_user_prefix, service, region, bb, path, latest_version, role):
         """Check if service-user in NSXT is up-to-date"""
+
+        try:
+            management_user = self.nsxt_vaultcache[bb]
+        except KeyError:
+            management_user = self.nsxt_vaultcache.renew_pw(bb)
+
+        if not management_user:
+            msg = f"NSXT: Could not read management user for service user creation: {bb}"
+            raise NSXTManagementError(msg)
+
         current_username = service_user_prefix + str(latest_version).zfill(4)
         dry_run = self.global_options.get('dry_run', "False") == 'True'
         nsxt = NsxtUserAPIHelper(user=management_user["username"], password=management_user["password"],
                                  bb=bb, region=region, dry_run=dry_run)
 
-        try:
-            active_users = nsxt.list_users(prefix=service_user_prefix)
-        except Exception as e:
-            msg = f"Failed to list users - {e}"
-            raise NSXTSkippedError(msg)
+        retry = 1
+        while retry <= 2:
+            try:
+                active_users = nsxt.list_users(prefix=service_user_prefix)
+                break
+            except NotAuthorizedException:
+                LOG.info("NSXT: Not authorized to access NSXT for service user creation. Refreshing vault cache")
+                self.nsxt_vaultcache.renew_pw(bb)
+                retry += 1
+            except Exception as e:
+                msg = f"Failed to list users - {e}"
+                raise NSXTSkippedError(msg)
+        else:
+            # breaking out of the loop, or if an exception is raised, the else won't be executed
+            raise NSXTSkippedError("NSXT: Management user outdated. Could not refresh vault cache")
 
         # Check if vcenter_service_user_tracker has an entry for the NSX-T BB
         if service not in self.vcenter_service_user_tracker:

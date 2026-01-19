@@ -11,6 +11,7 @@ def configurator():
     """Fixture to create a Configurator instance with mocked dependencies"""
     global_options = {
         "dry_run": False,
+        "region": "qa-de-1",
     }
     domain = "test_domain"
 

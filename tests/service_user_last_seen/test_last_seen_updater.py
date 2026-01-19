@@ -15,6 +15,7 @@ def configurator():
         "dry_run": False,
         "own_namespace": "test_namespace",
         "manage_service_user_passwords": True,
+        "region": "qa-de-1",
     }
     domain = "test_domain"
 
