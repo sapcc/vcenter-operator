@@ -11,7 +11,6 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from os.path import commonprefix
 
-import requests
 from kubernetes import client
 from kubernetes.client.models import V1ObjectMeta, V1Pod, V1PodList
 from masterpassword.masterpassword import MasterPassword
@@ -19,11 +18,12 @@ from pyVim.connect import Disconnect, SmartConnect
 from pyVmomi import vim
 
 import vcenter_operator.vcenter_util as vcu
-from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper
+from vcenter_operator.nsxt_user_manager import NotAuthorizedError, NSXTSkippedError, NsxtUserAPIHelper
 from vcenter_operator.phelm import DeploymentState
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
 from vcenter_operator.util import parse_buildingblock
 from vcenter_operator.vault import Vault, VaultSecretNotReplicatedError, VaultUnavailableError
+from vcenter_operator.vault_cache import NSXTCacheError, NSXTManagementCache
 from vcenter_operator.vcenter_sso import SSOSkippedError, VCenterSSO
 
 LOG = logging.getLogger(__name__)
@@ -33,10 +33,6 @@ class VcConnectionFailedError(Exception):
 
 
 class VcConnectSkippedError(Exception):
-    pass
-
-
-class NSXTManagementError(Exception):
     pass
 
 
@@ -82,6 +78,8 @@ class Configurator:
         self.vcenter_service_user_tracker = defaultdict(lambda: defaultdict(dict))
         self.states = dict()
         self.vault = Vault(dry_run=self.global_options.get('dry_run', 'False') == 'True')
+        self.nsxt_vaultcache = NSXTManagementCache(self.global_options['region'], self.vault,
+                                                   cache_lifetime=60 * 30)
         self.vcenter_sso = VCenterSSO(dry_run=self.global_options.get('dry_run', 'False') == 'True')
         self.global_options['cells'] = set()
         self.global_options['domain'] = domain
@@ -302,6 +300,11 @@ class Configurator:
             if self.vault_check_interval != vault_check_interval and vault_check_interval != "":
                 self.vault_check_interval = int(vault_check_interval)
 
+            # The interval (in seconds) before requesting the NSX-T user management password from Vault again
+            if nsxt_management_user_cache_lifetime := b64decode(
+                    secret.data.pop('nsxt_management_user_cache_lifetime', "")):
+                self.nsxt_vaultcache.cache_lifetime = int(nsxt_management_user_cache_lifetime)
+
             password_length = int(b64decode(secret.data.pop('password_length')))
             password_digits = int(b64decode(secret.data.pop('password_digits')))
             password_symbols = int(b64decode(secret.data.pop('password_symbols')))
@@ -448,8 +451,6 @@ class Configurator:
                 LOG.warning("Ignoring host %s for this run due to Vault not beeing replicated", host)
             except SSOSkippedError:
                 LOG.warning("Ignoring host %s for this run due to SSO being unavailable", host)
-            except NSXTManagementError as e:
-                LOG.warning(e)
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
 
@@ -478,21 +479,6 @@ class Configurator:
                     # Required for accessing the nsxt management user path in vault
                     # and for the NSXT URL
                     bb_name = parse_buildingblock(vc_cluster.removeprefix("production"), leading_zero=True)
-                    management_user_path = "{}/compute/nsxt/nsx-ctl-1-{}.cc.{}.cloud.sap/nsxt-shell".format(
-                        self.global_options['region'], bb_name, self.global_options['region'])
-                    try:
-                        # Fetch from default path
-                        # For HTTP error > 500 raise VaultUnavailableError and handle in reconcile loop
-                        management_user = self.vault.get_secret(management_user_path)
-                    except requests.HTTPError as e:
-                        LOG.error("NSXT: Not able to fetch management user for nsxt shell user %s: %s",
-                                  management_user_path, e)
-                        continue
-
-                    if not management_user:
-                        LOG.error("NSXT: Could not read management user for service user creation: %s",
-                                  management_user_path)
-                        continue
 
                     path = f"{self.global_options['region']}/vcenter-operator/{cr_name}/{bb_name}"
                     LOG.debug("NSXT: Check service user %s %s %s", path, service_username_template, cr_name)
@@ -501,7 +487,7 @@ class Configurator:
                     try:
                         self._check_service_user_nsxt(service_username_template, cr_name, service_type,
                                                       self.global_options['region'], bb_name, path, latest_version,
-                                                      management_user, role="enterprise_admin")
+                                                      role="enterprise_admin")
                     except NSXTSkippedError as e:
                         LOG.error(e)
             else:
@@ -709,19 +695,33 @@ class Configurator:
 
             self.vcenter_service_user_tracker[cr_name][host][str(version)] = time.time()
 
+
     def _check_service_user_nsxt(self, service_user_prefix, cr_name, service_type, region, bb, path,
-                                 latest_version, management_user, role):
+                                 latest_version, role):
         """Check if service-user in NSXT is up-to-date"""
+
+        try:
+            management_user = self.nsxt_vaultcache.get_secret(bb)
+        except NSXTCacheError as e:
+            raise NSXTSkippedError(f"NSXT: An issue fetching the management user for {bb} occured") from e
+
+        if not management_user:
+            msg = f"NSXT: Could not read management user for service user creation: {bb}"
+            raise NSXTSkippedError(msg)
+
         current_username = service_user_prefix + str(latest_version).zfill(4)
         dry_run = self.global_options.get('dry_run', "False") == 'True'
         nsxt = NsxtUserAPIHelper(user=management_user["username"], password=management_user["password"],
                                  bb=bb, region=region, dry_run=dry_run)
-
         try:
             active_users = nsxt.list_users(prefix=service_user_prefix)
-        except Exception as e:
-            msg = f"Failed to list users - {e}"
-            raise NSXTSkippedError(msg)
+        except NotAuthorizedError:
+            try:
+                self.nsxt_vaultcache.renew_pw(bb)
+            except NSXTCacheError as e:
+                raise NSXTSkippedError(f"NSXT: An issue fetching the management user for {bb} occured") from e
+            raise NSXTSkippedError(f"NSXT: Cached management user for {bb} not authorized, refreshed cache for user. "
+                                   "Try again later.") from None
 
         # Create current user in NSXT
         if current_username not in active_users:
