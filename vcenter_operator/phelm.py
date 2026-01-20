@@ -53,7 +53,8 @@ class DeploymentState:
                 if "uses-service-user" in jinja2_options:
                     LOG.debug("Template %s requires service-user management", template.name)
                     result = self._inject_service_user_info_and_render(
-                        template, service_users, vcenter_service_user_tracker, service_user_crds, options, jinja2_options
+                        template, service_users, vcenter_service_user_tracker,
+                        service_user_crds, options, jinja2_options
                     )
                 else:
                     LOG.debug("Template %s does not require service-user management", template.name)
@@ -67,7 +68,8 @@ class DeploymentState:
         self.order_items()
 
     def _inject_service_user_info_and_render(
-        self, template, service_users, vcenter_service_user_tracker, service_user_crds, options, jinja2_options
+        self, template, service_users, vcenter_service_user_tracker, service_user_crds,
+            options, jinja2_options
     ):
         """Check if template uses service-user and inject necessary information into the template"""
 
