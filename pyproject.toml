@@ -32,14 +32,22 @@ requires = ["setuptools ~= 65.5", "wheel"]
 line-length = 120
 select = ["E", "F", "W", "I", "N", "UP"]
 
+[tool.pytest]
+norecursedirs = ["e2e*"]
+
 [tool.tox]
 legacy_tox_ini = """
 [tox]
 envlist = ruff
 basepython = python3.10
 
+[testenv:test]
+deps = -r{toxinidir}/test-requirements.txt
+whitelist_externals = sh
+commands = pytest -v
+
 [testenv:pep8]
-commands = ruff
+commands = ruff check
 deps = ruff
 basepython = python3.10
 """

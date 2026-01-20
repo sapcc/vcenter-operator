@@ -13,7 +13,7 @@ def vcenter_service_user_crd_loader():
 def test_duplicate_service_username_template(vcenter_service_user_crd_loader):
     """Test the prevention of duplicate service username templates"""
     vcenter_service_user_crd_loader.mapping = {
-        "test_service_user_template0001": ("1", "test_service_user_template", "test_namespace"),
+        "test_service_user_template0001": ("1", {"username": "test_service_user_template"}, "test_namespace"),
     }
 
     with pytest.raises(VCenterServiceUserCRDUsernameTemplateDuplicateError):
@@ -23,7 +23,7 @@ def test_duplicate_service_username_template(vcenter_service_user_crd_loader):
 def test_no_duplicate_service_username_template(vcenter_service_user_crd_loader):
     """Test the prevention of duplicate service username templates"""
     vcenter_service_user_crd_loader.mapping = {
-        "test_service_user_template0001": ("1", "test_service_user_template", "test_namespace"),
+        "test_service_user_template0001": ("1", {"username": "test_service_user_template"}, "test_namespace"),
     }
 
     try:
