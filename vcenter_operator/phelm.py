@@ -114,7 +114,7 @@ class DeploymentState:
 
         if service_user_path not in service_users:
             raise ServiceUserPathNotFoundError(
-                f"Service-user path for servicer user {cr_name} and vcenter {options['vcenter_name']} not found")
+                f"Service-user path {service_user_path} for servicer user {cr_name} and vcenter {options['vcenter_name']} not found")
 
 
         latest_version = self._get_latest_active_service_user_version(
