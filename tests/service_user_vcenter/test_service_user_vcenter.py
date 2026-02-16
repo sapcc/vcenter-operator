@@ -17,7 +17,6 @@ def configurator():
     configurator = Configurator(domain, global_options)
     configurator.vcenter_sso = MagicMock()
     configurator.vault = MagicMock()
-    configurator.vcenter_service_user_tracker = {}
     return configurator
 
 
@@ -82,8 +81,6 @@ def test_service_user_missing_state(configurator):
     configurator.vcenter_sso.create_service_user.return_value = None
 
     time_last_seen = time.time()
-
-    configurator.vcenter_service_user_tracker = {}
 
     configurator._check_service_user_vcenter(
         "test_service_user_template", cr_name, "test_service", "test_host", "test_path", "1"

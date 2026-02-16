@@ -6,6 +6,7 @@ import logging
 import re
 import ssl
 import time
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from os.path import commonprefix
@@ -78,7 +79,7 @@ class Configurator:
         self.vcenters = dict()
         self.service_users = dict()
         self.last_service_user_check = dict()
-        self.vcenter_service_user_tracker = dict()
+        self.vcenter_service_user_tracker = defaultdict(lambda: defaultdict(dict))
         self.states = dict()
         self.vault = Vault(dry_run=self.global_options.get('dry_run', 'False') == 'True')
         self.vcenter_sso = VCenterSSO(dry_run=self.global_options.get('dry_run', 'False') == 'True')
@@ -609,13 +610,6 @@ class Configurator:
         """Check if service-user in vcenter is up to date"""
         current_username = service_username_template + str(latest_version).zfill(4)
 
-        # Check if vcenter_service_user_tracker has an entry for vcenter and service combination
-        if cr_name not in self.vcenter_service_user_tracker:
-            self.vcenter_service_user_tracker[cr_name] = dict()
-
-        if host not in self.vcenter_service_user_tracker[cr_name]:
-            self.vcenter_service_user_tracker[cr_name][host] = dict()
-
         service_users_in_vcenter = self.vcenter_sso.list_service_users(host, service_username_template)
 
         # Check if current_username is in vcenter
@@ -713,13 +707,6 @@ class Configurator:
             LOG.debug("Found pod with service-user %s and version %s - updating last seen timestamp",
                       service_user, version)
 
-            # Check if vcenter_service_user_tracker has an entry for vcenter and service combination
-            if cr_name not in self.vcenter_service_user_tracker:
-                self.vcenter_service_user_tracker[cr_name] = dict()
-
-            if host not in self.vcenter_service_user_tracker[cr_name]:
-                self.vcenter_service_user_tracker[cr_name][host] = dict()
-
             self.vcenter_service_user_tracker[cr_name][host][str(version)] = time.time()
 
     def _check_service_user_nsxt(self, service_user_prefix, cr_name, service_type, region, bb, path,
@@ -735,13 +722,6 @@ class Configurator:
         except Exception as e:
             msg = f"Failed to list users - {e}"
             raise NSXTSkippedError(msg)
-
-        # Check if vcenter_service_user_tracker has an entry for the NSX-T BB
-        if cr_name not in self.vcenter_service_user_tracker:
-            self.vcenter_service_user_tracker[cr_name] = dict()
-
-        if bb not in self.vcenter_service_user_tracker[cr_name]:
-            self.vcenter_service_user_tracker[cr_name][bb] = dict()
 
         # Create current user in NSXT
         if current_username not in active_users:
