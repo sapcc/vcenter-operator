@@ -11,6 +11,7 @@ from kubernetes import dynamic
 from yaml.error import YAMLError
 
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
+from vcenter_operator.util import parse_buildingblock
 
 LOG = logging.getLogger(__name__)
 
@@ -84,7 +85,8 @@ class DeploymentState:
 
         if service_type == "nsxt":
             # options['name'] holds the bb information
-            service_user_path = f"{options['region']}/vcenter-operator/{cr_name}/{options['name']}"
+            bb_name = parse_buildingblock(options['name'], leading_zero=True)
+            service_user_path = f"{options['region']}/vcenter-operator/{cr_name}/{bb_name}"
             host = options['name']
             username_path = (
                 "{{{{ "
