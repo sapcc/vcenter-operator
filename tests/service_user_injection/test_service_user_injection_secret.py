@@ -7,7 +7,7 @@ from vcenter_operator.phelm import DeploymentState
 from vcenter_operator.templates import _b64enc, _ini_quote
 
 
-SPEC = {"spec": {"service": None}}
+SPEC = {"service": None}
 NAMESPACE = "abcde"
 K8S_RESOURCEVERSION = -100
 

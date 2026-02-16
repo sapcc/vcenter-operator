@@ -79,8 +79,8 @@ class DeploymentState:
             # This exception should not get caught - intention is to raise attention to the missing service-user CR
             raise ServiceUserNotFoundError(f"Service vcsu {cr_name} missing for template {template.name}")
 
-        spec = service_user_crds[cr_name][1]
-        service_type = spec["spec"].get("service")
+        _, spec, _ = service_user_crds[cr_name]
+        service_type = spec.get("service")
 
         if service_type == "nsxt":
             # options['name'] holds the bb information
