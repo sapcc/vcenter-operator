@@ -16,7 +16,6 @@ class TestNsxtServiceUserManagement(unittest.TestCase):
         self.configurator = Configurator(domain, global_options)
         self.configurator.vcenter_sso = MagicMock()
         self.configurator.vault = MagicMock()
-        self.configurator.vcenter_service_user_tracker = {}
 
     @patch.object(NsxtUserAPIHelper, "connect")
     @patch.object(NsxtUserAPIHelper, "add_user_to_group")
