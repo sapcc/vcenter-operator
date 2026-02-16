@@ -19,7 +19,7 @@ from pyVmomi import vim
 
 import vcenter_operator.vcenter_util as vcu
 from vcenter_operator.nsxt_user_manager import NSXTSkippedError, NsxtUserAPIHelper
-from vcenter_operator.phelm import DeploymentState, ServiceUserPathNotFoundError
+from vcenter_operator.phelm import DeploymentState
 from vcenter_operator.templates import env, vcenter_service_user_crd_loader
 from vcenter_operator.util import parse_buildingblock
 from vcenter_operator.vault import Vault, VaultSecretNotReplicatedError, VaultUnavailableError
@@ -447,14 +447,10 @@ class Configurator:
                 LOG.warning("Ignoring host %s for this run due to Vault not beeing replicated", host)
             except SSOSkippedError:
                 LOG.warning("Ignoring host %s for this run due to SSO being unavailable", host)
-            except NSXTSkippedError as e:
-                LOG.warning(e)
             except NSXTManagementError as e:
                 LOG.warning(e)
             except http.client.HTTPException as e:
                 LOG.warning("%s: %r", host, e)
-            except ServiceUserPathNotFoundError as e:
-                LOG.warning("Ignoring host %s for this run due to missing service user path in state: %s", host, e)
 
     def _reconcile_service_users(self, host, vc_cluster_names):
         """
@@ -501,9 +497,12 @@ class Configurator:
                     LOG.debug("NSXT: Check service user %s %s %s", path, service_username_template, cr_name)
 
                     latest_version = self._check_vault_user(path, service_username_template, cr_name, service_type)
-                    self._check_service_user_nsxt(service_username_template, cr_name, service_type,
-                                                  self.global_options['region'], bb_name, path, latest_version,
-                                                  management_user, role="enterprise_admin")
+                    try:
+                        self._check_service_user_nsxt(service_username_template, cr_name, service_type,
+                                                      self.global_options['region'], bb_name, path, latest_version,
+                                                      management_user, role="enterprise_admin")
+                    except NSXTSkippedError as e:
+                        LOG.error(e)
             else:
                 # host: {name}.{domain}
                 vcenter_name = host.split('.')[0]

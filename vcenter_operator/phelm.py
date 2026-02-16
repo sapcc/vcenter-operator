@@ -65,6 +65,15 @@ class DeploymentState:
                 self.add(result, owner, namespace)
             except (TemplateError, YAMLError):
                 LOG.exception("Failed to render %s", template_name)
+            except (ServiceUserPathNotFoundError, VersionNotFoundError) as e:
+                match scope:
+                    case "vcenter_cluster":
+                        scope_name = options['name']
+                    case "vcenter_datacenter":
+                        scope_name = options['vcenter_name']
+                    case _:
+                        raise NotImplementedError(f"Scope {scope} is not known to this part of the code")
+                LOG.error("Could not render %s for %s %s: %s", template_name, scope, scope_name, e)
         # Order the item by kind to ensure that Secrets are created before ConfigMaps and Deployments
         self.order_items()
 
