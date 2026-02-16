@@ -87,7 +87,7 @@ class DeploymentState:
             # options['name'] holds the bb information
             bb_name = parse_buildingblock(options['name'], leading_zero=True)
             service_user_path = f"{options['region']}/vcenter-operator/{cr_name}/{bb_name}"
-            host = options['name']
+            host = bb_name
             username_path = (
                 "{{{{ "
                 'resolve "vault+kvv2:///secrets/{}/username?version={}"'
