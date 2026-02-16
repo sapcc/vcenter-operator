@@ -7,7 +7,7 @@ from jinja2 import DictLoader, Environment
 from vcenter_operator.phelm import DeploymentState
 from vcenter_operator.templates import _b64enc, _ini_quote
 
-SPEC = {"spec": {"service": 'nsxt'}}
+SPEC = {"service": 'nsxt'}
 NAMESPACE = "abcde"
 K8S_RESOURCEVERSION = -100
 

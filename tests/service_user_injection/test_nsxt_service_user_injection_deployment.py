@@ -8,7 +8,7 @@ from vcenter_operator.phelm import DeploymentState
 from vcenter_operator.templates import _ini_quote
 
 
-SPEC = {"spec": {"service": "nsxt"}}
+SPEC = {"service": "nsxt"}
 NAMESPACE = "abcde"
 K8S_RESOURCEVERSION = -100
 
@@ -149,11 +149,10 @@ def test_inject_user_info_vault_2(state, jinja_env):
         "region": "test_region",
         "host": "test_vcenter",
     }
-    spec = {"spec": {"service": "nsxt"}}
     namespace = "abcde"
     resourceversion = -100
 
-    service_user_crds = {"nsxt": (resourceversion, spec, namespace)}
+    service_user_crds = {"nsxt": (resourceversion, SPEC, namespace)}
     jinja2_options = {"uses-service-user": "nsxt"}
 
     result = state._inject_service_user_info_and_render(

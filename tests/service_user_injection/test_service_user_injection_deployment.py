@@ -7,7 +7,7 @@ from vcenter_operator.phelm import DeploymentState, ServiceUserNotFoundError, Se
 from vcenter_operator.templates import _ini_quote
 
 
-SPEC = {"spec": {"service": None}}
+SPEC = {"service": None}
 NAMESPACE = "abcde"
 K8S_RESOURCEVERSION = -100
 
