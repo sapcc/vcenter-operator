@@ -234,7 +234,10 @@ class NsxtUserAPIHelper(NsxtLoginHelper):
             "full_name": username,
             "username": username,
             "password": password,
-            "password_change_frequency": 0,
+            # Number of days password is valid
+            # workaround for version 4.1 required
+            # no expiry (0) does not work
+            "password_change_frequency": 9999,
             "status": "ACTIVE"
         }
         params = {"action": "create_user"}
