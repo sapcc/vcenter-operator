@@ -98,6 +98,32 @@ def _owner_from_obj(item):
     }
 
 
+def _create_or_patch_crd(crd: client.V1CustomResourceDefinition):
+    api = client.ApiextensionsV1Api()
+    name = crd.metadata['name']
+    patch_existing_crd = False
+
+    try:
+        tmp_crd = api.read_custom_resource_definition(name)
+        if tmp_crd:
+            patch_existing_crd = True
+    except client.rest.ApiException:
+        LOG.debug("Failed to read custom resource definition %s", name)
+
+    if patch_existing_crd:
+        try:
+            LOG.debug("Patching existing custom resource definition %s", name)
+            api.patch_custom_resource_definition(name, crd)
+        except client.rest.ApiException:
+            LOG.exception("Failed to patch custom resource definition %s", name)
+    else:
+        try:
+            LOG.debug("Create custom resource definition %s", name)
+            api.create_custom_resource_definition(crd)
+        except client.rest.ApiException:
+            LOG.exception("Failed to create custom resource definition %s", name)
+
+
 class PollingLoader(BaseLoader):
     API_GROUP = 'vcenter-operator.stable.sap.cc'
 
@@ -160,7 +186,10 @@ class VCenterTemplateCRDLoader(PollingLoader):
         mapping = dict()
         group = self._crd.spec['group']
         plural = self._crd.spec['names']['plural']
-        version = self._crd.spec['version']
+        # We define the crd ourselve so we know it is not empty
+        # If it is empty, we better let it fail instead
+        version = self._crd.spec['versions'][0]['name']
+
         try:
             resp = api.list_cluster_custom_object(group, version, plural)
         except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
@@ -206,10 +235,34 @@ class VCenterTemplateCRDLoader(PollingLoader):
             },
             spec={
                 'group': VCenterTemplateCRDLoader.API_GROUP,
-                'version': 'v1',
-                'versions': [{'name': 'v1',
-                              'served': True,
-                              'storage': True}],
+                'versions': [
+                    {
+                        'name': 'v1',
+                        'served': True,
+                        'storage': True,
+                        'schema': {
+                            'openAPIV3Schema': {
+                                'type': 'object',
+                                'properties': {
+                                    'options': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'scope': {'type': 'string'},
+                                            'jinja2_options': {
+                                                'type': 'object',
+                                                # We want to allow jinja2 options
+                                                # Also vcenter-service-user password rotation settings need to be
+                                                # allowed here
+                                                'additionalProperties': True
+                                                }
+                                        }
+                                    },
+                                    'template': {'type': 'string'}
+                                }
+                            }
+                        }
+                    }
+                ],
                 'scope': 'Namespaced',
                 'names': {
                     'singular': singular,
@@ -224,14 +277,8 @@ class VCenterTemplateCRDLoader(PollingLoader):
         if self._crd:
             return
 
-        api = client.ApiextensionsV1Api()
-        self._crd = \
-            VCenterTemplateCRDLoader._custom_resource_definition()
-
-        try:
-            api.create_custom_resource_definition(self._crd)
-        except client.rest.ApiException:
-            LOG.exception("Failed to create custom resource definition vcenter-template")
+        self._crd = VCenterTemplateCRDLoader._custom_resource_definition()
+        _create_or_patch_crd(self._crd)
 
 
 class VCenterServiceUserCRDLoader(PollingLoader):
@@ -255,7 +302,10 @@ class VCenterServiceUserCRDLoader(PollingLoader):
 
         group = self._crd.spec["group"]
         plural = self._crd.spec["names"]["plural"]
-        version = self._crd.spec["version"]
+        # We define the crd ourselve so we know it is not empty
+        # If it is empty, we better let it fail instead
+        version = self._crd.spec['versions'][0]['name']
+
         try:
             resp = api.list_cluster_custom_object(group, version, plural)
         except (client.rest.ApiException, urllib3.exceptions.MaxRetryError) as e:
@@ -294,7 +344,6 @@ class VCenterServiceUserCRDLoader(PollingLoader):
             },
             spec={
                 "group": VCenterServiceUserCRDLoader.API_GROUP,
-                "version": "v1",
                 "versions": [
                     {
                         "name": "v1",
@@ -330,30 +379,8 @@ class VCenterServiceUserCRDLoader(PollingLoader):
         if self._crd:
             return
 
-        api = client.ApiextensionsV1Api()
         self._crd = VCenterServiceUserCRDLoader._custom_resource_definition()
-
-        name = self._crd.metadata["name"]
-        patch_existing_crd = False
-        try:
-            tmp_crd = api.read_custom_resource_definition(name)
-            if tmp_crd:
-                patch_existing_crd = True
-        except client.rest.ApiException:
-            LOG.debug("Failed to read custom resource definition %s", name)
-
-        if patch_existing_crd:
-            try:
-                LOG.debug("Patching existing custom resource definition %s", name)
-                api.patch_custom_resource_definition(name, self._crd)
-            except client.rest.ApiException:
-                LOG.exception("Failed to patch custom resource definition %s", name)
-        else:
-            try:
-                LOG.debug("Create custom resource definition %s", name)
-                api.create_custom_resource_definition(self._crd)
-            except client.rest.ApiException:
-                LOG.exception("Failed to create custom resource definition service-user %s", name)
+        _create_or_patch_crd(self._crd)
 
 
 class K8sEnvironment(Environment):
