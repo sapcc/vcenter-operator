@@ -358,17 +358,21 @@ class Configurator:
 
             self.vault.login()
 
-        password = b64decode(secret.data.pop('password'))
-        for key, value in secret.data.items():
-            value = b64decode(value)
-            try:
-                self.global_options[key] = json.loads(value)
-            except ValueError:
-                self.global_options[key] = value
-        if self.password != password:
-            self.global_options.update(master_password=password)
-            self.password = password
-            self.mpw = MasterPassword(self.username, self.password)
+        # MasterPassword usage is optional.
+        # If username/password are missing but MasterPassword is later required, an error will be
+        # raised at the point of use in _connect_vcenter.
+        if secret.data.get('username') and secret.data.get('password'):
+            password = b64decode(secret.data.pop('password'))
+            for key, value in secret.data.items():
+                value = b64decode(value)
+                try:
+                    self.global_options[key] = json.loads(value)
+                except ValueError:
+                    self.global_options[key] = value
+            if self.password != password:
+                self.global_options.update(master_password=password)
+                self.password = password
+                self.mpw = MasterPassword(self.username, self.password)
 
     def _poll_nova_cells(self):
         """Fetch information about Nova's cells"""
