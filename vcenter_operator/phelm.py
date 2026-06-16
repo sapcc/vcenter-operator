@@ -7,6 +7,7 @@ import attr
 import yaml
 from jinja2.exceptions import TemplateError
 from kubernetes import client as k8s_client
+from kubernetes import config as k8s_config
 from kubernetes import dynamic
 from yaml.error import YAMLError
 
@@ -207,6 +208,79 @@ class DeploymentState:
         sorted_keys = self._sort_resources(self.items.keys())
         self.items = OrderedDict((k, self.items[k]) for k in sorted_keys)
 
+    def _clean_managed_fields(self, resource, resource_args, metadata_name):
+        """
+        Removes managed fields with operation='Update' from managers like 'kubectl',
+        'before-first-apply', 'vcenter-operator', or 'OpenAPI-Generator', and
+        operation='Apply' from 'kubectl'.
+        """
+        client = self.get_client()
+
+        try:
+            # Fetch current resource from the server
+            server_object = client.get(resource, name=metadata_name, namespace=resource_args.get('namespace'))
+        except k8s_client.rest.ApiException as e:
+            if e.status == 404:
+                LOG.debug(f"Clean managed fields: {resource}/{metadata_name} - resource does not exist")
+                return
+            raise
+
+        # Get managed fields from the server object
+        managed_fields = server_object.metadata.managedFields
+        if not managed_fields:
+            # No managed fields to clean
+            LOG.debug(f"Clean managed fields: {resource}/{metadata_name} - no managed fields found")
+            return
+
+        unwanted_updates = ['kubectl', 'before-first-apply', 'vcenter-operator', "OpenAPI-Generator"]
+        unwanted_apply = ['kubectl']
+
+        # Find indices of managedFields entries to remove
+        indices_to_remove = []
+        for idx, field in enumerate(managed_fields):
+            if (field.operation == 'Update' and field.manager in unwanted_updates) or \
+                    (field.operation == 'Apply' and field.manager in unwanted_apply):
+                indices_to_remove.append(idx)
+
+        if not indices_to_remove:
+            LOG.debug(f"Clean managed fields: {resource}/{metadata_name} - no changes needed")
+            return
+
+        removed_count = len(indices_to_remove)
+
+        msg_overview = ("Clean managed fields: %s/%s - remove %s.")
+        msg_field = "Clean managed fields: %s/%s - %s"
+
+        if self.dry_run:
+            msg_overview = f"(dry-run): {msg_overview}"
+            msg_field = f"(dry-run): {msg_field}"
+
+        LOG.info(msg_overview,resource, metadata_name, removed_count)
+        for idx in indices_to_remove:
+            LOG.debug(msg_field, resource, metadata_name, managed_fields[idx])
+
+        if self.dry_run:
+            return
+
+        # Build JSON patch to remove managedFields entries by index
+        # Remove in reverse order so indices remain valid during removal
+        patch = [
+            {"op": "remove", "path": f"/metadata/managedFields/{idx}"}
+            for idx in sorted(indices_to_remove, reverse=True)
+        ]
+
+        # Apply the JSON patch only patching manged fields
+        try:
+            client.patch(
+                resource,
+                body=patch,
+                name=metadata_name,
+                namespace=resource_args.get('namespace'),
+                content_type='application/json-patch+json'
+            )
+        except k8s_client.rest.ApiException:
+            LOG.exception(f"Failed to clean managed fields for {resource}/{metadata_name}")
+
     def _apply_item(self, resource, resource_args, new_item):
         client = self.get_client()
         metadata_name = new_item['metadata']['name']
@@ -219,6 +293,13 @@ class DeploymentState:
                 LOG.debug(line)
         else:
             LOG.debug(f"Applying: {resource}/{metadata_name} in {resource_args['namespace']}")
+
+        # Clean up managed fields
+        try:
+            self._clean_managed_fields(resource, resource_args, new_item['metadata']['name'])
+        # Catch pokemon exception here ensure normal operator behaviour
+        except Exception as e:
+            LOG.exception(f"Failed to clean managed fields {resource}/{metadata_name} - {str(e)}")
 
         # If anything has changed, the server will trigger it
         try:
