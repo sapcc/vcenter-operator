@@ -3,9 +3,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from vcenter_operator.configurator import Configurator
-from vcenter_operator.nsxt_user_manager import NsxtUserAPIHelper, NotAuthorizedError, NSXTSkippedError
+from vcenter_operator.nsxt_user_manager import NotAuthorizedError, NSXTSkippedError, NsxtUserAPIHelper
 from vcenter_operator.vault_cache import NSXTManagementCache
-
 
 
 class TestNsxtServiceUserManagement(unittest.TestCase):
@@ -54,7 +53,9 @@ class TestNsxtServiceUserManagement(unittest.TestCase):
     @patch.object(NsxtUserAPIHelper, "list_users")
     @patch.object(NsxtUserAPIHelper, "check_user_in_group")
     @patch.object(NSXTManagementCache, "get_secret")
-    def test_service_user_missing_in_nsxt(self, fn_get_secret, fn_user_group, fn_list, fn_create_user, fn_add_usergroup, fn_connect):
+    def test_service_user_missing_in_nsxt(
+        self, fn_get_secret, fn_user_group, fn_list, fn_create_user, fn_add_usergroup, fn_connect
+    ):
         management_user_secret = {
             "username": "admin",
             "password": "admin"
