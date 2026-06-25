@@ -1,8 +1,10 @@
 import logging
 import os
+
 from pyvmomi_extended import extend_pyvmomi
 
 from vcenter_operator.vcenter_sso import VCenterSSO
+
 LOG = logging.getLogger(__name__)
 
 logging.basicConfig(

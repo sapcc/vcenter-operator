@@ -32,6 +32,7 @@ class Vault:
         self.approle = None
         self.password_constraints = None
 
+    @staticmethod
     def require_vault_parameters(fn):
         @wraps(fn)
         def wrapped(self, *args, **kwargs):

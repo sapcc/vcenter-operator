@@ -6,7 +6,6 @@ from jinja2 import DictLoader, Environment
 from vcenter_operator.phelm import DeploymentState, ServiceUserNotFoundError, ServiceUserPathNotFoundError
 from vcenter_operator.templates import _ini_quote
 
-
 SPEC = {"service": None}
 NAMESPACE = "abcde"
 K8S_RESOURCEVERSION = -100
