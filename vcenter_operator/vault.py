@@ -32,7 +32,7 @@ class Vault:
         self.approle = None
         self.password_constraints = None
 
-    def require_vault_parameters(fn):
+    def require_vault_parameters(fn): # noqa: N805
         @wraps(fn)
         def wrapped(self, *args, **kwargs):
             """Check if all required parameters are set"""

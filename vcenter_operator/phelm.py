@@ -7,7 +7,6 @@ import attr
 import yaml
 from jinja2.exceptions import TemplateError
 from kubernetes import client as k8s_client
-from kubernetes import config as k8s_config
 from kubernetes import dynamic
 from yaml.error import YAMLError
 
@@ -56,7 +55,8 @@ class DeploymentState:
                 if "uses-service-user" in jinja2_options:
                     LOG.debug("Template %s requires service-user management", template.name)
                     result = self._inject_service_user_info_and_render(
-                        template, service_users, vcenter_service_user_tracker, service_user_crds, options, jinja2_options
+                        template, service_users, vcenter_service_user_tracker,
+                        service_user_crds, options, jinja2_options
                     )
                 else:
                     LOG.debug("Template %s does not require service-user management", template.name)
@@ -126,7 +126,8 @@ class DeploymentState:
 
         if service_user_path not in service_users:
             raise ServiceUserPathNotFoundError(
-                f"Service-user path {service_user_path} for servicer user {cr_name} and vcenter {options['vcenter_name']} not found")
+                f"Service-user path {service_user_path} for servicer user {cr_name} and "
+                f"vcenter {options['vcenter_name']} not found")
 
 
         latest_version = self._get_latest_active_service_user_version(
