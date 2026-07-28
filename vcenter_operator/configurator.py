@@ -370,7 +370,7 @@ class Configurator:
                 self.global_options.update(master_password=password)
                 self.password = password
                 self.mpw = MasterPassword(self.username, self.password)
-        
+
         for key, value in secret.data.items():
             value = b64decode(value)
             try:
