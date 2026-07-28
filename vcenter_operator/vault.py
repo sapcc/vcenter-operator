@@ -10,7 +10,7 @@ LOG = logging.getLogger(__name__)
 
 EXPIRY_DAYS = 365
 RENEW_MARGIN_SECONDS = 5 * 60
-
+DEFAULT_TIMEOUT = 60
 
 class VaultUnavailableError(Exception):
     """Custom exception for Vault unavailability"""
@@ -96,7 +96,7 @@ class Vault:
     @require_vault_parameters
     def _request_login(self):
         """Login request to the vault instance"""
-        resp = requests.post(f"{self.vault_url}/v1/auth/approle/login", json=self.approle)
+        resp = requests.post(f"{self.vault_url}/v1/auth/approle/login", json=self.approle, timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -111,7 +111,8 @@ class Vault:
         """Get the secret from vault"""
 
         headers = self._get_headers()
-        resp = requests.get(f"{self.vault_url}/v1/{self.get_mountpoint(read=True)}/data/{path}", headers=headers)
+        resp = requests.get(f"{self.vault_url}/v1/{self.get_mountpoint(read=True)}/data/{path}", headers=headers,
+                            timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -149,7 +150,8 @@ class Vault:
 
         mount_point = self.get_mountpoint(read, service_type)
         headers = self._get_headers()
-        resp = requests.get(f"{self.vault_url}/v1/{mount_point}/metadata/{path}", headers=headers)
+        resp = requests.get(f"{self.vault_url}/v1/{mount_point}/metadata/{path}", headers=headers,
+                            timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -201,7 +203,8 @@ class Vault:
         }
 
         headers = self._get_headers()
-        resp = requests.put(f"{self.vault_url}/v1/gen/password", json=metadata, headers=headers)
+        resp = requests.put(f"{self.vault_url}/v1/gen/password", json=metadata, headers=headers,
+                            timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -234,7 +237,8 @@ class Vault:
             "mount": mount,
             "path": path,
         }
-        resp = requests.post(f"{self.vault_url}/v1/gen/replicate", json=data, headers=headers)
+        resp = requests.post(f"{self.vault_url}/v1/gen/replicate", json=data, headers=headers,
+                             timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -257,7 +261,8 @@ class Vault:
             LOG.debug("Dry-run: Would have created service-user")
             return "1"
         mount_point_write = self.get_mountpoint(read=False, service_type=service_type)
-        resp = requests.post(f"{self.vault_url}/v1/{mount_point_write}/data/{path}", json=data, headers=headers)
+        resp = requests.post(f"{self.vault_url}/v1/{mount_point_write}/data/{path}", json=data, headers=headers,
+                             timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -281,7 +286,8 @@ class Vault:
         }
 
         resp = requests.post(
-            f"{self.vault_url}/v1/{mount_point_write}/metadata/{path}", json=metadata, headers=headers)
+            f"{self.vault_url}/v1/{mount_point_write}/metadata/{path}", json=metadata, headers=headers,
+            timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()
@@ -321,7 +327,8 @@ class Vault:
         """Get the service-user data from vault"""
 
         headers = self._get_headers()
-        resp = requests.get(f"{self.vault_url}/v1/{self.get_mountpoint(read=True)}/data/{path}", headers=headers)
+        resp = requests.get(f"{self.vault_url}/v1/{self.get_mountpoint(read=True)}/data/{path}", headers=headers,
+                            timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
             raise VaultUnavailableError()

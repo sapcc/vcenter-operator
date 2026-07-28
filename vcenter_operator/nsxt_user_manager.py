@@ -5,6 +5,7 @@ import urllib3
 
 LOG = logging.getLogger(__name__)
 
+DEFAULT_TIMEOUT = 60
 
 class NotAuthorizedError(Exception):
     pass
@@ -56,7 +57,8 @@ class NsxtLoginHelper:
         self._create_session()
         try:
             url = self.gen_fullpath("api/session/create")
-            r = self.session.post(url, data={'j_username': self.user, 'j_password': self.password})
+            r = self.session.post(url, data={'j_username': self.user, 'j_password': self.password},
+                                  timeout=DEFAULT_TIMEOUT)
         except requests.exceptions.ConnectionError as e:
             raise ConnectionError(f"Could not connect to nsx-t: {e}")
 
@@ -70,7 +72,7 @@ class NsxtLoginHelper:
             return False
 
         # this would return a 404 if the session is valid, 403 otherwise
-        r = requests.get(self.gen_fullpath("api"))
+        r = self.session.get(self.gen_fullpath("api"), timeout=DEFAULT_TIMEOUT)
         return r.status_code != 403
 
     def _request(self, method, url, *args, **kwargs):
@@ -80,6 +82,7 @@ class NsxtLoginHelper:
         fullpath = self.gen_fullpath(url)
 
         method = getattr(self.session, method)
+        kwargs.update({"timeout": DEFAULT_TIMEOUT})
         res = method(fullpath, *args, **kwargs)
 
         if res.status_code == 403:

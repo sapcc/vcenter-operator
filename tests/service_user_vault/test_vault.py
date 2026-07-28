@@ -4,7 +4,7 @@ from unittest.mock import call
 
 import pytest
 
-from vcenter_operator.vault import Vault
+from vcenter_operator.vault import DEFAULT_TIMEOUT, Vault
 
 URL = "http://random.com"
 TOKEN = "TOKEN"
@@ -93,7 +93,7 @@ def test_store_service_user_credentials(vault):
 
         expected_call = call(f'{URL}/v1/{custom_mount_point}/data/{PATH}',
             json={'data': {'username': username, 'password': password}},
-            headers={'X-Vault-Token': TOKEN})
+            headers={'X-Vault-Token': TOKEN}, timeout=DEFAULT_TIMEOUT)
 
         assert expected_call in mock_post.call_args_list
 
@@ -106,7 +106,7 @@ def test_trigger_replicate(vault):
 
         expected_call = call(f'{URL}/v1/gen/replicate',
                          json={'mount': DEFAULT_WRITE_MOUNT_POINT, 'path': PATH},
-                         headers={'X-Vault-Token': TOKEN})
+                         headers={'X-Vault-Token': TOKEN}, timeout=DEFAULT_TIMEOUT)
 
         assert expected_call in mock_post.call_args_list
 
@@ -117,7 +117,7 @@ def test_trigger_replicate(vault):
         vault.trigger_replicate(PATH, service_type=service)
         expected_call = call(f'{URL}/v1/gen/replicate',
                              json={'mount': custom_mount_point_write, 'path': PATH},
-                             headers={'X-Vault-Token': TOKEN})
+                             headers={'X-Vault-Token': TOKEN}, timeout=DEFAULT_TIMEOUT)
 
         assert expected_call in mock_post.call_args_list
 
