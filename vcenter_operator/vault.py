@@ -99,7 +99,7 @@ class Vault:
         resp = requests.post(f"{self.vault_url}/v1/auth/approle/login", json=self.approle, timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         resp.raise_for_status()
 
@@ -115,7 +115,7 @@ class Vault:
                             timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         if resp.status_code == 404:
             LOG.warning("Could not find the secret under path %s in vault", path)
@@ -154,7 +154,7 @@ class Vault:
                             timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         if resp.status_code == 404:
             LOG.warning("Could not find the secret under path %s in vault", path)
@@ -207,7 +207,7 @@ class Vault:
                             timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         resp.raise_for_status()
 
@@ -241,7 +241,7 @@ class Vault:
                              timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         resp.raise_for_status()
 
@@ -265,7 +265,7 @@ class Vault:
                              timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         resp.raise_for_status()
 
@@ -292,7 +292,7 @@ class Vault:
             timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         resp.raise_for_status()
 
@@ -333,7 +333,7 @@ class Vault:
                             timeout=DEFAULT_TIMEOUT)
 
         if resp.status_code >= 500:
-            raise VaultUnavailableError()
+            raise VaultUnavailableError(f"HTTP {resp.status_code}: {resp.text}")
 
         resp.raise_for_status()
 

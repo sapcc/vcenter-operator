@@ -453,8 +453,8 @@ class Configurator:
                 )
             except VcConnectSkippedError:
                 LOG.warning("Ignoring disconnected %s for this run.", host)
-            except VaultUnavailableError:
-                LOG.warning("Ignoring host %s for this run due to Vault being unavailable", host)
+            except VaultUnavailableError as e:
+                LOG.warning("Ignoring host %s for this run due to Vault being unavailable: %s", host, e)
             except VaultSecretNotReplicatedError:
                 LOG.warning("Ignoring host %s for this run due to Vault not beeing replicated", host)
             except SSOSkippedError:
