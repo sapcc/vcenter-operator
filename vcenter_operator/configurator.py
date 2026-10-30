@@ -730,6 +730,9 @@ class Configurator:
                 raise NSXTSkippedError(f"NSXT: An issue fetching the management user for {bb} occured") from e
             raise NSXTSkippedError(f"NSXT: Cached management user for {bb} not authorized, refreshed cache for user. "
                                    "Try again later.") from None
+        except Exception as e:
+            msg = f"Failed to list users from NSX-T for {bb}. Error: {e}"
+            raise NSXTSkippedError(msg) from e
 
         # Create current user in NSXT
         if current_username not in active_users:
