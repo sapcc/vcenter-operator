@@ -274,7 +274,7 @@ class Vault:
         metadata = {
             "custom_metadata": {
                 "accessed_resource": self.get_access_group(service_type),
-                "application_criticallity": "HIGH",
+                "application_criticality": "HIGH",
                 "expiry_date": (datetime.now() + timedelta(days=EXPIRY_DAYS)).strftime("%Y-%m-%d"),
                 "owner": "vcenter-operator",
                 "review_date": datetime.now().strftime("%Y-%m-%d"),
@@ -283,7 +283,7 @@ class Vault:
                 "username": username,
                 "replica_dest_secrets": f"{self.get_mountpoint(read=True, service_type=service_type)}, {path}",
                 "is_privileged": "true",
-                "single_factor": "true"
+                "is_single_factor": "true"
             }
         }
 
